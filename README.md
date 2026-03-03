@@ -3,7 +3,7 @@
 [![License: GPLv2](https://img.shields.io/badge/License-GPLv2-blue.svg)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/dpearson2699/swift-ios-skills)](https://github.com/dpearson2699/swift-ios-skills/stargazers)
 [![Swift 6.2](https://img.shields.io/badge/Swift-6.2-F05138.svg)](https://swift.org)
-[![iOS 26+](https://img.shields.io/badge/iOS%2026%2B%20%7C%20macOS-000000.svg?logo=apple)](https://developer.apple.com)
+[![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20macOS-000000.svg?logo=apple)](https://developer.apple.com)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-built%20for-blueviolet.svg?logo=anthropic)](https://claude.ai/code)
 [![OpenAI Codex](https://img.shields.io/badge/OpenAI%20Codex-built%20for-412991.svg?logo=openai)](https://developers.openai.com/codex)
 [![Cursor](https://img.shields.io/badge/Cursor-built%20for-00A4DC.svg)](https://cursor.com)
