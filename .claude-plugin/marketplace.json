@@ -1,0 +1,113 @@
+{
+  "name": "swift-ios-skills",
+  "owner": {
+    "name": "dpearson"
+  },
+  "metadata": {
+    "description": "23 iOS and Swift development skills for Claude Code",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "swiftui-skills",
+      "source": "./",
+      "description": "SwiftUI development: patterns, animation, Liquid Glass, performance, UIKit interop",
+      "version": "1.0.0",
+      "keywords": ["swiftui", "ios", "swift", "ui", "liquid-glass", "animation"],
+      "category": "development",
+      "strict": false,
+      "skills": [
+        "./skills/swiftui-patterns",
+        "./skills/swiftui-animation",
+        "./skills/swiftui-liquid-glass",
+        "./skills/swiftui-performance",
+        "./skills/swiftui-uikit-interop"
+      ]
+    },
+    {
+      "name": "swift-core-skills",
+      "source": "./",
+      "description": "Core Swift: concurrency, testing, SwiftData, Charts",
+      "version": "1.0.0",
+      "keywords": ["swift", "concurrency", "testing", "swiftdata", "charts"],
+      "category": "development",
+      "strict": false,
+      "skills": [
+        "./skills/swift-concurrency",
+        "./skills/swift-testing",
+        "./skills/swiftdata",
+        "./skills/swift-charts"
+      ]
+    },
+    {
+      "name": "ios-framework-skills",
+      "source": "./",
+      "description": "iOS frameworks: App Intents, StoreKit, WidgetKit, MapKit, Live Activities, TipKit, push notifications, photos/camera",
+      "version": "1.0.0",
+      "keywords": ["ios", "storekit", "widgetkit", "mapkit", "appintents", "tipkit"],
+      "category": "development",
+      "strict": false,
+      "skills": [
+        "./skills/app-intents",
+        "./skills/storekit",
+        "./skills/widgetkit",
+        "./skills/live-activities",
+        "./skills/mapkit-location",
+        "./skills/tipkit",
+        "./skills/push-notifications",
+        "./skills/photos-camera-media"
+      ]
+    },
+    {
+      "name": "ios-engineering-skills",
+      "source": "./",
+      "description": "iOS engineering: networking, security, accessibility, localization, App Store review, on-device AI",
+      "version": "1.0.0",
+      "keywords": ["ios", "networking", "security", "accessibility", "localization", "ai"],
+      "category": "development",
+      "strict": false,
+      "skills": [
+        "./skills/ios-networking",
+        "./skills/ios-security",
+        "./skills/ios-accessibility",
+        "./skills/ios-localization",
+        "./skills/app-store-review",
+        "./skills/apple-on-device-ai"
+      ]
+    },
+    {
+      "name": "all-ios-skills",
+      "source": "./",
+      "description": "All 23 iOS and Swift development skills in one plugin",
+      "version": "1.0.0",
+      "keywords": ["swift", "ios", "swiftui", "complete"],
+      "category": "development",
+      "strict": false,
+      "skills": [
+        "./skills/app-intents",
+        "./skills/app-store-review",
+        "./skills/apple-on-device-ai",
+        "./skills/ios-accessibility",
+        "./skills/ios-localization",
+        "./skills/ios-networking",
+        "./skills/ios-security",
+        "./skills/live-activities",
+        "./skills/mapkit-location",
+        "./skills/photos-camera-media",
+        "./skills/push-notifications",
+        "./skills/storekit",
+        "./skills/swift-charts",
+        "./skills/swift-concurrency",
+        "./skills/swift-testing",
+        "./skills/swiftdata",
+        "./skills/swiftui-animation",
+        "./skills/swiftui-liquid-glass",
+        "./skills/swiftui-patterns",
+        "./skills/swiftui-performance",
+        "./skills/swiftui-uikit-interop",
+        "./skills/tipkit",
+        "./skills/widgetkit"
+      ]
+    }
+  ]
+}
