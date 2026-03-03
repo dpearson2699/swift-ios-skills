@@ -4,8 +4,8 @@
 [![GitHub stars](https://img.shields.io/github/stars/dpearson2699/swift-ios-skills)](https://github.com/dpearson2699/swift-ios-skills/stargazers)
 [![Swift 6.2](https://img.shields.io/badge/Swift-6.2-F05138.svg)](https://swift.org)
 [![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20macOS-000000.svg?logo=apple)](https://developer.apple.com)
-[![Claude Code](https://img.shields.io/badge/Claude%20Code-built%20for-d97757.svg?logo=anthropic)](https://claude.ai/code)
-[![OpenAI Codex](https://img.shields.io/badge/OpenAI%20Codex-built%20for-10A37F.svg?logo=openai)](https://developers.openai.com/codex)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-compatible-d97757.svg?logo=anthropic)](https://claude.ai/code)
+[![OpenAI Codex](https://img.shields.io/badge/OpenAI%20Codex-compatible-10A37F.svg?logo=openai)](https://developers.openai.com/codex)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-standard-green.svg)](https://agentskills.io)
 
 23 agent skills optimized for **iOS 26+** development with Swift 6.2 and modern Apple frameworks. All code examples, patterns, and guidance target the latest APIs -- Liquid Glass, Swift 6.2 approachable concurrency, Foundation Models, StoreKit 2, SwiftData, async/await URLSession, and more. No deprecated patterns.
