@@ -490,9 +490,3 @@ NavigationLink {
   full Spring variants, all Transition types, symbol effect details, Transaction
   system, UnitCurve types, and performance guidance.
 
-## API Verification
-
-The apple-docs MCP server is available for verifying SwiftUI animation API
-names, signatures, and availability. Use `searchAppleDocumentation` with queries
-like "PhaseAnimator" or `fetchAppleDocumentation` with paths like
-`/documentation/swiftui/animation` to cross-check details when needed.

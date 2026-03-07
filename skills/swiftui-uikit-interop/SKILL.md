@@ -406,13 +406,6 @@ If passing closures across isolation boundaries, ensure they are `@Sendable` or 
 - [ ] Modal controllers dismiss in all delegate exit paths (success, cancel, error)
 - [ ] `UIHostingConfiguration` used for collection/table view cells instead of manual hosting (iOS 16+)
 
-## MCP Integration
-
-Use the apple-docs MCP to verify UIViewRepresentable protocol requirements and check for API changes:
-
-- `searchAppleDocumentation` with "UIViewRepresentable", "UIViewControllerRepresentable", "UIHostingController"
-- `fetchAppleDocumentation` with `/documentation/SwiftUI/UIViewRepresentable`, `/documentation/SwiftUI/UIHostingController`
-
 ## References
 
 - Wrapping recipes: `references/representable-recipes.md`

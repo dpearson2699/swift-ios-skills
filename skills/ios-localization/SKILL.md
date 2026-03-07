@@ -399,12 +399,3 @@ Use Xcode scheme settings to override the app language without changing device l
 - [ ] Pseudolocalization tested (accented, right-to-left, double-length)
 - [ ] Ensure localized string types are Sendable; use @MainActor for locale-change UI updates
 
-## MCP Integration
-
-The apple-docs MCP can verify current API signatures for `LocalizedStringResource`, `FormatStyle`, `String(localized:)`, and related types when the service is available:
-
-```
-fetchAppleDocumentation path: "/documentation/foundation/localizedstringresource"
-fetchAppleDocumentation path: "/documentation/foundation/formatstyle"
-fetchAppleDocumentation path: "/documentation/swiftui/localizedstringkey"
-```

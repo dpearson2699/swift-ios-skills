@@ -491,9 +491,3 @@ For every user-facing view, verify:
 - [ ] Heading traits set on section headers
 - [ ] Custom accessibility types and notification payloads are `Sendable` when passed across concurrency boundaries
 
-## Apple Documentation Reference
-
-For the latest API details, use the `apple-docs` MCP server when available:
-- `searchAppleDocumentation` with queries like "accessibility SwiftUI" or "VoiceOver"
-- `fetchAppleDocumentation` with paths like `/documentation/swiftui/view-accessibility` or `/documentation/swiftui/scaledmetric`
-- Apple's modifier reference covers labels, values, hints, actions, traits, focus, rotors, and custom content

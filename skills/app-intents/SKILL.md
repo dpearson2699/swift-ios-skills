@@ -489,9 +489,3 @@ struct ProductValueQuery: IntentValueQuery {
   error handling, confirmation flows, authentication, URL-representable types,
   and Spotlight indexing details.
 
-## API Verification
-
-The apple-docs MCP server is available for verifying App Intents API names,
-signatures, and availability. Use `fetchAppleDocumentation` with paths like
-`/documentation/AppIntents/AppIntent` or `/documentation/AppIntents/AppEntity`
-to cross-check details when needed.

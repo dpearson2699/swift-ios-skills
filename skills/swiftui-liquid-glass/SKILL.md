@@ -258,8 +258,6 @@ struct GlassBadge: View {
 
 ## Available MCP Tools
 
-- **apple-docs**: Use `fetchAppleDocumentation` to look up the latest SwiftUI Liquid Glass
-  APIs (e.g., path `/documentation/SwiftUI/View/glassEffect(_:in:)`).
 - **xcodebuildmcp**: If available, use to build and test your project directly.
 
 ## References

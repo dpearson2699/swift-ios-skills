@@ -407,16 +407,6 @@ a 500 with an error body require different handling.
 - [ ] Server error responses decoded and surfaced to users
 - [ ] Ensure network response model types conform to Sendable; use @MainActor for UI-updating completion paths
 
-## API Verification (apple-docs MCP)
-
-The apple-docs MCP server can verify URLSession API signatures and
-availability. Use `searchAppleDocumentation` with queries like
-"URLSession data for request", "URLSessionWebSocketTask",
-"NWPathMonitor", or "URLSessionConfiguration". Use
-`fetchAppleDocumentation` with paths like
-`/documentation/foundation/urlsession` or
-`/documentation/network/nwpathmonitor` to cross-check details.
-
 ## Reference Material
 
 - See `references/urlsession-patterns.md` for complete API client

@@ -479,13 +479,6 @@ actor ModelCoordinator {
 - [ ] Concurrency: model types and tool implementations are `Sendable`-conformant or `@MainActor`-isolated
 - [ ] Physical device testing performed (not simulator)
 
-## Apple Documentation
-
-The `apple-docs` MCP server provides direct access to Apple developer
-documentation. Use `searchAppleDocumentation` and `fetchAppleDocumentation` to
-look up the latest API details for FoundationModels, Core ML, and related
-frameworks.
-
 ## Reference Files
 
 - [Foundation Models API](references/foundation-models.md) -- Complete

@@ -492,8 +492,3 @@ compliance checklists, see `references/app-review-guidelines.md`.
 - [ ] PrivacyInfo.xcprivacy present; all required-reason APIs declared
 - [ ] No sensitive data in logs; Data cleared after use; URLs/paths validated
 
-## Apple Developer Documentation
-
-The `apple-docs` MCP server provides access to Apple docs. Use `searchAppleDocumentation`
-for Security, CryptoKit, and LocalAuthentication APIs, or `fetchAppleDocumentation`
-with paths like `/documentation/CryptoKit`.

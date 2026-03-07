@@ -495,4 +495,3 @@ let category = UNNotificationCategory(
 
 - `references/notification-patterns.md` — AppDelegate setup, delegate implementation, deep-link router, silent push, scheduling, token refresh, debugging.
 - `references/rich-notifications.md` — Service Extension (media, decryption), Content Extension (custom UI), attachments, communication notifications.
-- apple-docs MCP: verify APIs at `/documentation/usernotifications/unusernotificationcenter`.

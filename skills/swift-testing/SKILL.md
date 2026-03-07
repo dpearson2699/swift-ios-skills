@@ -496,4 +496,3 @@ Test code that calls `exit()`, `fatalError()`, or `preconditionFailure()`:
 ## MCP Integration
 
 - **xcodebuildmcp**: Build and run tests directly — full suites, individual functions, tag-filtered runs.
-- **apple-docs MCP**: Verify Swift Testing APIs at `/documentation/Testing`.

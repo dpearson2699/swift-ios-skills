@@ -469,4 +469,3 @@ func lookupPlace(name: String, coordinate: CLLocationCoordinate2D) async throws 
 
 - `references/mapkit-patterns.md` — Map setup, annotations, search, routes, clustering, Look Around, snapshots.
 - `references/corelocation-patterns.md` — CLLocationUpdate, CLMonitor, CLServiceSession, background location, testing.
-- apple-docs MCP: `/documentation/mapkit/map`, `/documentation/corelocation/cllocationupdate`

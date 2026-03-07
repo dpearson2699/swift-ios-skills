@@ -662,14 +662,3 @@ Parameters:
 - `allowEscapingMutations`: When `false`, objects are autoreleased after the
   block. Set to `true` only if mutations must persist beyond the block.
 
----
-
-## API Verification
-
-Use the apple-docs MCP server for verification. Relevant paths:
-
-- `/documentation/SwiftData/Query` -- @Query property wrapper
-- `/documentation/SwiftData/FetchDescriptor` -- Fetch configuration
-- `/documentation/foundation/predicate` -- #Predicate operators
-- `/documentation/foundation/sortdescriptor` -- SortDescriptor
-- `/documentation/SwiftData/ModelContext` -- Fetch methods on context

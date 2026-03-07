@@ -369,9 +369,3 @@ single-value callbacks. Resume exactly once.
 - See `references/swiftui-concurrency.md` for SwiftUI-specific concurrency
   guidance.
 
-## API Verification
-
-The apple-docs MCP server is available for verifying Swift concurrency API
-names, signatures, and availability. Use `fetchAppleDocumentation` with paths
-like `/documentation/swift/task` or `/documentation/swift/mainactor` to
-cross-check details when needed.

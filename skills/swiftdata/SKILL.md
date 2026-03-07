@@ -318,8 +318,3 @@ struct DetailView: View {
 - See `references/swiftdata-queries.md` for @Query variants, FetchDescriptor
   deep dive, sectioned queries, dynamic queries, and background fetch patterns.
 
-## API Verification
-
-Use `fetchAppleDocumentation` with paths like `/documentation/SwiftData`,
-`/documentation/SwiftData/ModelContext`, `/documentation/SwiftData/Query`,
-`/documentation/SwiftData/FetchDescriptor` to verify API details.

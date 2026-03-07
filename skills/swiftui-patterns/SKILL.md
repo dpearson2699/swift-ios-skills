@@ -474,12 +474,6 @@ See `references/hig-patterns.md` for full HIG pattern examples.
 9. Inline closures in body -- extract complex closures to methods
 10. `.sheet(isPresented:)` when state represents a model -- use `.sheet(item:)` instead
 
-## Apple Documentation (apple-docs MCP)
-
-When implementing SwiftUI patterns, use the apple-docs MCP server to verify current API signatures:
-- `searchAppleDocumentation` with queries like "NavigationStack", "Observable macro", "searchable modifier"
-- `fetchAppleDocumentation` with paths like `/documentation/SwiftUI/NavigationStack`, `/documentation/Observation/Observable()`; always cross-reference against official docs for iOS 17+ APIs
-
 ## Review Checklist
 
 - [ ] `@Observable` used for shared state models (not `ObservableObject` on iOS 17+)

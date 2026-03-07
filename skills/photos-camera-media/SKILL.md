@@ -494,4 +494,3 @@ Use `.original` for photos and artwork. Use `.template` for icons that should ad
 
 - `references/photospicker-patterns.md` — Picker patterns, media loading, thumbnail generation, HEIC handling.
 - `references/camera-capture.md` — AVCaptureSession setup, photo/video capture, QR scanning, orientation.
-- apple-docs MCP: `/documentation/PhotosUI/PhotosPicker`, `/documentation/AVFoundation/AVCaptureSession`

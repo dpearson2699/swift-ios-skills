@@ -458,9 +458,3 @@ SubscriptionStoreView(groupID: "group_id")
 - See `references/storekit-advanced.md` for subscription control styles,
   offer management, testing patterns, and advanced subscription handling.
 
-## API Verification
-
-The apple-docs MCP server is available for verifying StoreKit API names,
-signatures, and availability. Use `searchAppleDocumentation` with queries
-like "Product StoreKit" or `fetchAppleDocumentation` with paths like
-`/documentation/storekit/product` to cross-check details.

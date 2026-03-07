@@ -954,19 +954,3 @@ do {
 | Context | `.modelValidationFailure`, `.missingModelContext` |
 | Migration | `.backwardMigration`, `.unknownSchema` |
 | History (iOS 18+) | `.historyTokenExpired`, `.invalidTransactionFetchRequest` |
-
----
-
-## API Verification
-
-Use the apple-docs MCP server for verification. Relevant paths:
-
-- `/documentation/SwiftData` -- Framework overview
-- `/documentation/SwiftData/ModelContext` -- Context operations
-- `/documentation/SwiftData/ModelContainer` -- Container setup
-- `/documentation/SwiftData/FetchDescriptor` -- Fetch configuration
-- `/documentation/SwiftData/DataStore` -- Custom store protocol (iOS 18+)
-- `/documentation/SwiftData/VersionedSchema` -- Schema versioning
-- `/documentation/SwiftData/SchemaMigrationPlan` -- Migration orchestration
-- `/documentation/foundation/predicate` -- #Predicate operators
-- `/documentation/coredata/adopting-swiftdata-for-a-core-data-app` -- Coexistence

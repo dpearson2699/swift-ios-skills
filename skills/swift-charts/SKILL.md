@@ -463,12 +463,6 @@ Chart(data) { item in
 - [ ] Legend visible and positioned, or intentionally hidden
 - [ ] Ensure chart data model types are Sendable; update chart data on @MainActor
 
-## API Verification
-
-Use the apple-docs MCP `fetchAppleDocumentation` with paths like
-`/documentation/Charts/BarMark`, `/documentation/Charts/Chart`, or
-`/documentation/Charts/LinePlot` to verify API details.
-
 ## References
 
 - Extended patterns: `references/charts-patterns.md`

@@ -197,7 +197,6 @@ Provide:
 ## MCP Tool Notes
 
 - **xcodebuildmcp**: When building for profiling, use Release configuration. Debug builds include extra runtime checks that distort performance measurements. Always profile Release builds on a real device when possible.
-- **apple-docs MCP**: Use `searchAppleDocumentation` and `fetchAppleDocumentation` to look up current SwiftUI performance APIs, view lifecycle documentation, and Instruments guidance directly from Apple's developer documentation.
 
 ## Common Mistakes
 

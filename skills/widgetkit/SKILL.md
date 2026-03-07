@@ -481,12 +481,6 @@ are legible at a glance for driver safety.
 - [ ] iOS 26 Liquid Glass rendering tested with `WidgetAccentedRenderingMode`
 - [ ] Ensure Timeline entries and Intent types are Sendable; widget configuration providers should be @MainActor-isolated if they access shared state
 
-## API Verification
-
-The apple-docs MCP server is available for verifying WidgetKit and ActivityKit API
-names, signatures, and availability. Use `fetchAppleDocumentation` with paths like
-`/documentation/widgetkit` or `/documentation/activitykit`.
-
 ## References
 
 - Advanced guide: `references/widgetkit-advanced.md`

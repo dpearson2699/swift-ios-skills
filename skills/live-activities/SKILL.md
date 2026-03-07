@@ -482,12 +482,6 @@ let activity = try Activity.request(
 - [ ] Tested on device (Dynamic Island differs from Simulator)
 - [ ] Ensure ActivityAttributes and ContentState types are Sendable; update Live Activity UI on @MainActor
 
-## API Verification
-
-The apple-docs MCP server can verify ActivityKit API names, signatures, and
-availability. Use `fetchAppleDocumentation` with paths like
-`/documentation/activitykit` or `/documentation/activitykit/activityattributes`.
-
 ## References
 
 - Patterns and code: `references/live-activity-patterns.md`

@@ -475,8 +475,3 @@ struct DataLossTip: Tip {
   including custom styles, event-based rules, tip groups, testing strategies,
   onboarding flows, and SwiftUI preview configuration.
 
-## API Verification
-
-Use `fetchAppleDocumentation` with paths like `/documentation/TipKit`,
-`/documentation/TipKit/Tip`, `/documentation/TipKit/TipView`,
-`/documentation/TipKit/Tips` to verify API details.
