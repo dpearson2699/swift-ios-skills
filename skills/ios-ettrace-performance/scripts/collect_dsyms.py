@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import plistlib
 import re
@@ -82,6 +81,72 @@ def dsym_binaries(bundle: Path) -> list[Path]:
     return sorted(path for path in dwarf.iterdir() if path.is_file()) if dwarf.is_dir() else []
 
 
+def ettrace_destination_name(binary: Path) -> tuple[str, str | None]:
+    """Return the exact flat dSYM name ETTrace v1.1.1 looks up."""
+    if binary.suffix == ".dylib":
+        return (
+            f"{binary.name}.app.dSYM",
+            "ETTrace v1.1.1 has no verified flat lookup convention for app-embedded dylibs",
+        )
+    if any(parent.suffix == ".appex" for parent in binary.parents):
+        return (
+            f"{binary.name}.app.dSYM",
+            "ETTrace v1.1.1 has no verified flat lookup convention for app extensions",
+        )
+    extension = "framework" if any(parent.suffix == ".framework" for parent in binary.parents) else "app"
+    return f"{binary.name}.{extension}.dSYM", None
+
+
+def plan_destinations(
+    matches: list[dict[str, Any]],
+) -> tuple[list[dict[str, str]], list[dict[str, Any]], list[dict[str, str]]]:
+    """Plan runner-visible copies without silently renaming collisions."""
+    requirements: dict[Path, set[str]] = defaultdict(set)
+    incompatible: list[dict[str, str]] = []
+    for match in matches:
+        binary = Path(match["binary"])
+        source = Path(match["dsym"])
+        destination, reason = ettrace_destination_name(binary)
+        if reason:
+            incompatible.append(
+                {
+                    "binary": str(binary),
+                    "dsym": str(source),
+                    "required_destination": destination,
+                    "reason": reason,
+                }
+            )
+            continue
+        requirements[source].add(destination)
+
+    destinations: dict[str, set[Path]] = defaultdict(set)
+    for source, names in requirements.items():
+        if len(names) != 1:
+            incompatible.append(
+                {
+                    "binary": "<multiple>",
+                    "dsym": str(source),
+                    "required_destination": ", ".join(sorted(names)),
+                    "reason": "one dSYM bundle maps to multiple ETTrace-visible destination names",
+                }
+            )
+            continue
+        destinations[next(iter(names))].add(source)
+
+    collisions = [
+        {"destination": name, "sources": [str(source) for source in sorted(sources)]}
+        for name, sources in sorted(destinations.items())
+        if len(sources) > 1
+    ]
+    colliding_names = {item["destination"] for item in collisions}
+    copy_plan = [
+        {"source": str(next(iter(sources))), "destination_name": name}
+        for name, sources in sorted(destinations.items())
+        if name not in colliding_names
+    ]
+    return copy_plan, collisions, incompatible
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -91,7 +156,7 @@ def parse_args() -> argparse.Namespace:
     --search-root Archives --output /tmp/myapp-dsyms --pretty
 
 Exit status: 0 success; 2 invalid input/tool/build UUID failure;
-3 ambiguous UUID match; 4 missing UUID match.
+3 ambiguous UUID match; 4 missing UUID match; 5 incompatible destination layout.
 Structured JSON is written to stdout; diagnostics are written to stderr.""",
     )
     parser.add_argument("--app", required=True, type=Path, help="Exact .app build")
@@ -132,6 +197,9 @@ def main() -> int:
     missing_roots = [str(root) for root in roots if not root.is_dir()]
     if missing_roots:
         print(f"search roots do not exist: {missing_roots}", file=sys.stderr)
+        return 2
+    if output.exists() and not output.is_dir():
+        print(f"--output exists but is not a directory: {output}", file=sys.stderr)
         return 2
     if not args.dry_run and output.exists() and any(output.iterdir()):
         print(f"--output must be empty to prevent stale dSYMs: {output}", file=sys.stderr)
@@ -187,7 +255,6 @@ def main() -> int:
     matches: list[dict[str, Any]] = []
     missing: list[dict[str, str]] = []
     ambiguous: list[dict[str, Any]] = []
-    selected: set[Path] = set()
     for binary, values in sorted(target_uuids.items()):
         for uuid, arch in sorted(values):
             candidates = sorted(index.get((uuid, arch), set()))
@@ -201,20 +268,22 @@ def main() -> int:
             elif len(candidates) > 1:
                 ambiguous.append({**record, "candidates": [str(path) for path in candidates]})
             else:
-                selected.add(candidates[0])
                 matches.append({**record, "dsym": str(candidates[0])})
 
+    copy_plan, destination_collisions, incompatible_destinations = plan_destinations(matches)
     copied: list[dict[str, str]] = []
-    if not args.dry_run and not ambiguous and (args.allow_missing or not missing):
+    if (
+        not args.dry_run
+        and not ambiguous
+        and (args.allow_missing or not missing)
+        and not destination_collisions
+        and not incompatible_destinations
+    ):
         output.mkdir(parents=True, exist_ok=True)
-        used_destinations: set[Path] = set()
-        for source in sorted(selected):
-            destination = output / source.name
-            if destination in used_destinations or destination.exists():
-                digest = hashlib.sha256(str(source).encode()).hexdigest()[:8]
-                destination = output / f"{source.stem}-{digest}.dSYM"
+        for item in copy_plan:
+            source = Path(item["source"])
+            destination = output / item["destination_name"]
             shutil.copytree(source, destination)
-            used_destinations.add(destination)
             copied.append({"source": str(source), "destination": str(destination)})
 
     report = {
@@ -227,6 +296,9 @@ def main() -> int:
         "matches": matches,
         "missing": missing,
         "ambiguous": ambiguous,
+        "destination_collisions": destination_collisions,
+        "incompatible_destinations": incompatible_destinations,
+        "copy_plan": copy_plan,
         "scan_errors": scan_errors,
         "copied": copied,
     }
@@ -239,6 +311,12 @@ def main() -> int:
     if missing and not args.allow_missing:
         print("one or more build UUIDs have no matching dSYM", file=sys.stderr)
         return 4
+    if destination_collisions or incompatible_destinations:
+        print(
+            "dSYM matches cannot be copied to unique ETTrace v1.1.1-visible destinations",
+            file=sys.stderr,
+        )
+        return 5
     return 0
 
 

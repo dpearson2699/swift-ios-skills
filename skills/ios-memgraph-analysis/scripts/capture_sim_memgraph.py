@@ -73,6 +73,14 @@ def process_candidates(udid: str, bundle_id: str) -> list[dict[str, Any]]:
     return candidates
 
 
+def capture_succeeded(exit_status: int, memgraph: Path) -> bool:
+    """Accept leaks' no-leak/leak statuses only when a nonempty graph exists."""
+    try:
+        return exit_status in {0, 1} and memgraph.is_file() and memgraph.stat().st_size > 0
+    except OSError:
+        return False
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -126,7 +134,7 @@ def main() -> int:
     result = run(["leaks", f"--outputGraph={memgraph}", str(pid)])
     stdout_path.write_text(result.stdout, encoding="utf-8")
     stderr_path.write_text(result.stderr, encoding="utf-8")
-    status = "captured" if memgraph.is_file() else "failed"
+    status = "captured" if capture_succeeded(result.returncode, memgraph) else "failed"
     manifest = {
         "schema_version": 1,
         "status": status,
@@ -145,7 +153,11 @@ def main() -> int:
     json.dump(manifest, sys.stdout, indent=2 if args.pretty else None, sort_keys=True)
     sys.stdout.write("\n")
     if status == "failed":
-        print(f"leaks did not create {memgraph}; inspect preserved stderr", file=sys.stderr)
+        print(
+            f"leaks did not create a usable nonempty graph (exit {result.returncode}): "
+            f"{memgraph}; inspect preserved stdout/stderr and manifest",
+            file=sys.stderr,
+        )
         return 4
     return 0
 

@@ -8,7 +8,7 @@
     {"name": "Heap diff shape", "description": "Uses the exact current command shape heap --diffFrom=baseline.memgraph post.memgraph for malloc-region growth.", "max_score": 10},
     {"name": "Address lookup", "description": "Uses heap --addresses='<class-or-size-pattern>' post.memgraph to obtain concrete addresses for a suspicious type or size.", "max_score": 10},
     {"name": "No-MSL path", "description": "Uses a bounded leaks --traceTree=<address> query when Malloc Stack Logging is unavailable.", "max_score": 10},
-    {"name": "MSL path", "description": "Uses malloc_history -fullStacks when Malloc Stack Logging is present and does not compare that run with logging-disabled captures.", "max_score": 10},
+    {"name": "MSL path", "description": "Uses a complete address-mode command such as malloc_history post.memgraph -fullStacks <address>, takes <address> from heap --addresses, requires Malloc Stack Logging data, and does not compare that run with logging-disabled captures.", "max_score": 10},
     {"name": "Aggregate ownership", "description": "Uses leaks --referenceTree --groupByType when aggregate ownership clues are more useful than one address.", "max_score": 10},
     {"name": "Raw artifacts", "description": "Preserves every raw command result with the graph pair and directs the operator to check each installed tool's --help for evolving flags.", "max_score": 10},
     {"name": "Attributable proof", "description": "Verifies the identical repeated flow and requires removal or a justified bound for growth attributable to the same app type or allocation rather than relying on RSS alone.", "max_score": 10}

@@ -26,6 +26,15 @@ def nonnegative_number(value: Any, field: str, source: Path) -> float:
     return number
 
 
+def processed_address(value: Any, field: str, source: Path) -> int | None:
+    """Validate ETTrace v1.1.1's optional unresolved-address marker."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise InputError(f"{source}: {field} must be a nonnegative integer or null")
+    return value
+
+
 def child_nodes(value: Any, field: str, source: Path) -> list[dict[str, Any]]:
     if isinstance(value, dict):
         return [value]
@@ -70,6 +79,7 @@ def analyze_file(
     warnings: list[str] = []
     unattributed = 0.0
     unresolved = 0.0
+    unresolved_frames: dict[tuple[str, str, int | None], dict[str, Any]] = {}
     node_count = 0
     stack: list[tuple[dict[str, Any], str]] = [(root, "nodes")]
 
@@ -87,6 +97,7 @@ def analyze_file(
         duration = nonnegative_number(
             node.get("duration"), f"{location}.duration", path
         )
+        address = processed_address(node.get("address"), f"{location}.address", path)
         children = child_nodes(node.get("children"), f"{location}.children", path)
         child_duration = 0.0
         for index, child in enumerate(children):
@@ -108,12 +119,33 @@ def analyze_file(
 
         if name == "<unattributed>":
             unattributed += exclusive
-        if name == "<unknown>" or library == "<unknown>":
+        is_unresolved = name == "<unknown>" or library == "<unknown>" or address is not None
+        if is_unresolved:
             unresolved += exclusive
+            key = (name, library, address)
+            entry = unresolved_frames.setdefault(
+                key,
+                {
+                    "symbol": name,
+                    "library": library,
+                    "address": address,
+                    "occurrences": 0,
+                    "inclusive_seconds": 0.0,
+                    "exclusive_seconds": 0.0,
+                },
+            )
+            entry["occurrences"] += 1
+            entry["inclusive_seconds"] += duration
+            entry["exclusive_seconds"] += exclusive
+            if address is not None:
+                warnings.append(
+                    f"{location} carries address {address}; ETTrace 1.1.1 marks "
+                    "this frame unresolved"
+                )
 
         is_sentinel = name in {"", "<root>", "<unattributed>"}
         matches = pattern is None or pattern.search(f"{library} {name}") is not None
-        if not is_sentinel and matches:
+        if not is_sentinel and not is_unresolved and matches:
             entry = totals[(name, library)]
             entry["occurrences"] = int(entry["occurrences"]) + 1
             entry["inclusive_seconds"] = float(entry["inclusive_seconds"]) + duration
@@ -128,6 +160,15 @@ def analyze_file(
         "node_count": node_count,
         "unattributed_exclusive_seconds": unattributed,
         "unresolved_exclusive_seconds": unresolved,
+        "unresolved_frames": sorted(
+            unresolved_frames.values(),
+            key=lambda item: (
+                -float(item["exclusive_seconds"]),
+                item["symbol"],
+                item["library"],
+                -1 if item["address"] is None else int(item["address"]),
+            ),
+        ),
         "os_build": document.get("osBuild"),
         "device": document.get("device"),
         "is_simulator": document.get("isSimulator"),
@@ -184,8 +225,36 @@ def main() -> int:
     files: list[dict[str, Any]] = []
     warnings: list[str] = []
     try:
-        for path in args.inputs:
+        resolved_inputs: list[Path] = []
+        seen_inputs: dict[Path, Path] = {}
+        for supplied in args.inputs:
+            path = supplied.resolve()
+            if path in seen_inputs:
+                raise InputError(
+                    f"duplicate processed capture: {supplied} resolves to the same file as "
+                    f"{seen_inputs[path]}"
+                )
+            seen_inputs[path] = supplied
+            resolved_inputs.append(path)
+
+        expected_capture: dict[str, Any] | None = None
+        for path in resolved_inputs:
             metadata, file_warnings = analyze_file(path, pattern, totals)
+            capture = {
+                "os_build": metadata["os_build"],
+                "device": metadata["device"],
+                "is_simulator": metadata["is_simulator"],
+            }
+            if expected_capture is None:
+                expected_capture = capture
+            elif capture != expected_capture:
+                mismatches = [
+                    key for key in expected_capture if capture[key] != expected_capture[key]
+                ]
+                raise InputError(
+                    f"{path}: capture metadata does not match the first input for "
+                    f"{', '.join(mismatches)}"
+                )
             files.append(metadata)
             warnings.extend(f"{path}: {warning}" for warning in file_warnings)
     except InputError as error:

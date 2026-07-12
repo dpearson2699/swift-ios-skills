@@ -77,16 +77,20 @@ Use the final instrumented build for both capture and dSYM collection. Never
 choose a dSYM by filename, modification time, or Derived Data proximity.
 
 ```bash
+mkdir -p /tmp/myapp-ettrace
 python3 scripts/collect_dsyms.py \
   --app /path/to/Build/Products/Release-iphonesimulator/MyApp.app \
   --search-root /path/to/Build/Products \
   --search-root /path/to/Archives \
-  --output /tmp/myapp-ettrace/dsyms
+  --output /tmp/myapp-ettrace/dsyms \
+  --pretty > /tmp/myapp-ettrace/dsym-report.json
 ```
 
 The helper compares `dwarfdump --uuid` output for the app executable and
 embedded binaries. Missing or ambiguous UUID matches stop the run by default.
-Read the JSON report rather than assuming every copied symbol file is relevant.
+Read and preserve `dsym-report.json` rather than assuming every copied symbol
+file is relevant. The helper fails when UUID matches cannot be copied to unique
+flat destination names that ETTrace 1.1.1 can discover.
 
 ### 4. Capture from a clean artifact directory
 
@@ -96,10 +100,14 @@ exact dSYM directory. Add `--launch` only for launch work, and follow the
 runner's two-launch prompts exactly.
 
 ```bash
-mkdir -p /tmp/myapp-ettrace/run-01
+mkdir -p /tmp/myapp-ettrace
+mkdir /tmp/myapp-ettrace/run-01
 cd /tmp/myapp-ettrace/run-01
 ettrace --simulator --dsyms /tmp/myapp-ettrace/dsyms
 ```
+
+The second `mkdir` must fail if that per-run directory already exists. Choose a
+new run name instead of mixing processed captures from retries.
 
 Launch by tapping the app on the Home Screen when the runner asks. Launching
 from Xcode can change the launch path and timing. For device capture, omit
@@ -118,13 +126,15 @@ python3 scripts/analyze_ettrace.py \
   --top 25 --pretty > /tmp/myapp-ettrace/run-01/summary.json
 ```
 
-The helper validates the v1.1.1 processed node shape, handles the serializer's
+The helper validates the v1.1.1 processed node shape, rejects duplicate inputs
+or mixed `osBuild`/`device`/`isSimulator` metadata, handles the serializer's
 object-or-array `children` field, and emits deterministic JSON. It does not
 rewrite the capture files. Keep those originals beside the summary.
 
 Stop and repair symbolication when important app frames are `<unknown>`, raw
 addresses, or attributed to the wrong binary. An unsymbolicated hot address is
-an evidence gap, not a code recommendation.
+an evidence gap, not a code recommendation. ETTrace 1.1.1 address-bearing nodes
+are listed under `unresolved_frames` and excluded from ordinary hotspots.
 
 ### 6. Change one cause and repeat
 
@@ -169,6 +179,8 @@ twice. Report variance and the full capture contract with the result.
       data/cache state match.
 - [ ] Every capture starts in a fresh, empty per-run artifact directory.
 - [ ] App and embedded-binary UUIDs match the supplied dSYMs.
+- [ ] The dSYM collection JSON report is preserved with source/destination and
+      missing, ambiguous, collision, or incompatibility evidence.
 - [ ] Processed `output_<threadId>.json` files are preserved unchanged.
 - [ ] Important app frames are symbolicated.
 - [ ] Exclusive, inclusive, unattributed, and multi-thread semantics are clear.
@@ -179,4 +191,4 @@ twice. Report variance and the full capture contract with the result.
 ## References
 
 - [ETTrace repository and runner workflow](https://github.com/EmergeTools/ETTrace)
-- [ETTrace 1.1.1 release](https://github.com/EmergeTools/ETTrace/releases/tag/1.1.1)
+- [ETTrace 1.1.1 release](https://github.com/EmergeTools/ETTrace/releases/tag/v1.1.1)

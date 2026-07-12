@@ -1,6 +1,6 @@
 ---
 name: ios-memgraph-analysis
-description: "Capture and analyze iOS .memgraph files for unreachable leaks, retain cycles, ownership paths, and reachable persistent heap growth. Covers unambiguous Simulator process capture, leaks --list/--traceTree/--referenceTree/--groupByType, Malloc Stack Logging evidence, vmmap and heap pre/post comparisons, raw artifact preservation, and same-flow verification. Use when a task mentions memgraph, Memory Graph, leaks CLI, retained objects, or repeated memory growth; use debugging-instruments for generic Instruments or LLDB work."
+description: "Use when capturing or analyzing an exported iOS .memgraph with Apple CLI tools, following ownership paths from leaks output, or comparing matched memory graphs for persistent reachable heap growth. Covers unambiguous Simulator process capture, leaks --list/--traceTree/--referenceTree/--groupByType, Malloc Stack Logging evidence, vmmap and heap comparisons, raw artifact preservation, and same-flow verification. Use debugging-instruments for the interactive Xcode Memory Graph Debugger, generic retain-cycle inspection, Instruments, or LLDB work."
 ---
 
 # iOS Memgraph Analysis
@@ -71,12 +71,16 @@ Xcode can export a graph from the Memory Graph Debugger. For a running Simulator
 app, use the helper from this skill:
 
 ```bash
-mkdir -p /tmp/myapp-memory/run-01
+mkdir -p /tmp/myapp-memory
+mkdir /tmp/myapp-memory/run-01
 python3 scripts/capture_sim_memgraph.py \
   --bundle-id com.example.MyApp \
   --output-dir /tmp/myapp-memory/run-01 \
   --pretty > /tmp/myapp-memory/run-01/capture.json
 ```
+
+The per-run `mkdir` must fail if the capture directory already exists. Use a
+new run name rather than mixing stale evidence with a retry.
 
 Pass `--udid` when more than one Simulator is booted. The helper accepts only
 one exact launchd label and PID; zero or multiple matches are errors. It runs the
@@ -88,20 +92,29 @@ Capturing suspends the process. Do not use capture latency as performance data.
 ### 3. Preserve raw output and build a bounded summary
 
 ```bash
-mkdir -p /tmp/myapp-memory/run-01/analysis
+MEMGRAPH=$(jq -er \
+  'select(.status == "captured") | .memgraph | select(type == "string" and length > 0)' \
+  /tmp/myapp-memory/run-01/capture.json)
+test -s "$MEMGRAPH"
 python3 scripts/summarize_memgraph.py \
-  /tmp/myapp-memory/run-01/com.example.MyApp-123.memgraph \
-  --artifact-dir /tmp/myapp-memory/run-01/analysis \
+  "$MEMGRAPH" \
+  --artifact-dir /tmp/myapp-memory/run-01/analysis-raw \
   --app-image 'MyApp|MyFeatureKit' \
   --trace-limit 3 --group-by-type --pretty \
   > /tmp/myapp-memory/run-01/analysis.json
 ```
 
-The helper runs `leaks --list`, parses only a conservative subset of its text,
-and keeps raw stdout/stderr beside the JSON. `--app-image` marks candidate rows;
-it does not prove ownership. `--trace-limit` runs bounded
+Read the exact graph path from the preserved capture report; do not guess a
+timestamped filename. The helper creates a dedicated raw-artifact directory,
+refuses to reuse it, runs `leaks --list`, and parses only a conservative subset
+of its text. `--app-image` marks candidate rows; it does not prove ownership.
+`--trace-limit` runs bounded
 `leaks --traceTree=<address>` queries. Add `--reference-tree` when aggregate
-root paths are more useful than individual leaked addresses.
+root paths are more useful than individual leaked addresses. With
+`--group-by-type`, that reference-tree query is grouped in the same invocation.
+Exit statuses 0 and 1 from `leaks` remain analyzable; a primary status above 1
+fails the summary, while optional-query failures are preserved and warned as
+unusable without discarding a valid primary summary.
 
 Apple does not publish these text formats as stable machine schemas. Treat
 parse warnings as a reason to inspect the raw artifacts, not to loosen the
@@ -137,7 +150,9 @@ Then:
 - use `heap --addresses='<class-or-size-pattern>' post.memgraph` to obtain
   addresses for a suspicious type or size;
 - use `leaks --traceTree=<address>` without Malloc Stack Logging;
-- use `malloc_history -fullStacks` when Malloc Stack Logging is present;
+- use `malloc_history post.memgraph -fullStacks <address>` when Malloc Stack
+  Logging is present, where `<address>` comes from the preceding
+  `heap --addresses` query;
 - use `leaks --referenceTree --groupByType` to find aggregate ownership clues.
 
 Check each installed tool's `--help` because Xcode/macOS tool output and flags

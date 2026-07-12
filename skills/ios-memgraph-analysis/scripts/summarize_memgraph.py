@@ -21,12 +21,26 @@ TOTAL_LINE = re.compile(
 )
 
 
+class ArtifactError(RuntimeError):
+    """A raw artifact destination is not fresh enough for safe evidence capture."""
+
+
+def analyzable_leaks_status(exit_status: int) -> bool:
+    return exit_status in {0, 1}
+
+
 def run_and_preserve(command: list[str], artifact_dir: Path, stem: str) -> dict[str, Any]:
-    result = subprocess.run(command, text=True, capture_output=True, check=False)
     stdout_path = artifact_dir / f"{stem}.stdout.txt"
     stderr_path = artifact_dir / f"{stem}.stderr.txt"
-    stdout_path.write_text(result.stdout, encoding="utf-8")
-    stderr_path.write_text(result.stderr, encoding="utf-8")
+    existing = [str(path) for path in (stdout_path, stderr_path) if path.exists()]
+    if existing:
+        raise ArtifactError(f"raw artifact destination already exists: {existing}")
+    with stdout_path.open("x", encoding="utf-8") as stdout_file, stderr_path.open(
+        "x", encoding="utf-8"
+    ) as stderr_file:
+        result = subprocess.run(command, text=True, capture_output=True, check=False)
+        stdout_file.write(result.stdout)
+        stderr_file.write(result.stderr)
     return {
         "exit_status": result.returncode,
         "stdout": str(stdout_path),
@@ -74,7 +88,8 @@ def parse_args() -> argparse.Namespace:
   summarize_memgraph.py App.memgraph --artifact-dir analysis --trace-limit 3 --pretty
   summarize_memgraph.py --list-output leaks-list.txt --app-image 'MyApp|FeatureKit'
 
-Exit status: 0 parsed; 1 unrecognized leaks text; 2 invalid input or missing tool.
+Exit status: 0 parsed; 1 unrecognized leaks text; 2 invalid input or missing tool;
+3 primary leaks command failed.
 Summary JSON is written to stdout; live raw outputs are preserved in --artifact-dir.""",
     )
     parser.add_argument(
@@ -127,10 +142,20 @@ def main() -> int:
             print("leaks is not available on PATH", file=sys.stderr)
             return 2
         artifact_dir = args.artifact_dir.resolve()
-        artifact_dir.mkdir(parents=True, exist_ok=True)
-        list_run = run_and_preserve(
-            ["leaks", "--list", str(args.memgraph.resolve())], artifact_dir, "leaks-list"
-        )
+        if artifact_dir.exists():
+            print(
+                f"--artifact-dir must be a new dedicated raw-artifact directory: {artifact_dir}",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            artifact_dir.mkdir(parents=True, exist_ok=False)
+            list_run = run_and_preserve(
+                ["leaks", "--list", str(args.memgraph.resolve())], artifact_dir, "leaks-list"
+            )
+        except (ArtifactError, OSError) as error:
+            print(f"could not create fresh raw artifacts: {error}", file=sys.stderr)
+            return 2
         raw = str(list_run.pop("combined"))
         source = {"memgraph": str(args.memgraph.resolve()), "list_command": list_run}
     else:
@@ -143,6 +168,30 @@ def main() -> int:
         raw = args.list_output.read_text(encoding="utf-8")
         artifact_dir = None
         source = {"list_output": str(args.list_output.resolve())}
+
+    if live and not analyzable_leaks_status(int(source["list_command"]["exit_status"])):
+        report = {
+            "schema_version": 1,
+            "status": "tool_failed",
+            "source": source,
+            "reported_count": None,
+            "reported_bytes": None,
+            "parsed_entry_count": 0,
+            "app_image_patterns": args.app_image,
+            "type_groups": [],
+            "entries": [],
+            "traces": [],
+            "artifacts": {},
+            "warnings": [
+                "The primary leaks --list command exited above 1; preserved output is unusable "
+                "as analysis evidence."
+            ],
+            "interpretation_limit": "Counts, RSS, and graph size alone do not prove an ownership fix.",
+        }
+        json.dump(report, sys.stdout, indent=2 if args.pretty else None, sort_keys=True)
+        sys.stdout.write("\n")
+        print("primary leaks --list command failed; inspect preserved raw output", file=sys.stderr)
+        return 3
 
     parsed = parse_list_output(raw, app_patterns)
     warnings: list[str] = [
@@ -175,6 +224,12 @@ def main() -> int:
                 f"trace-{index + 1}-{entry['address']}",
             )
             combined = str(result.pop("combined"))
+            usable = analyzable_leaks_status(int(result["exit_status"]))
+            result["usable"] = usable
+            if not usable:
+                warnings.append(
+                    f"traceTree for {entry['address']} exited above 1; preserved artifact is unusable"
+                )
             traces.append(
                 {
                     "address": entry["address"],
@@ -190,15 +245,33 @@ def main() -> int:
                 "leaks-group-by-type",
             )
             result.pop("combined")
+            result["usable"] = analyzable_leaks_status(int(result["exit_status"]))
+            if not result["usable"]:
+                warnings.append(
+                    "groupByType exited above 1; preserved artifact is unusable"
+                )
             extra_artifacts["group_by_type"] = result
         if args.reference_tree:
+            reference_command = ["leaks", "--referenceTree"]
+            reference_key = "reference_tree"
+            reference_stem = "leaks-reference-tree"
+            if args.group_by_type:
+                reference_command.append("--groupByType")
+                reference_key = "grouped_reference_tree"
+                reference_stem = "leaks-grouped-reference-tree"
+            reference_command.append(str(args.memgraph.resolve()))
             result = run_and_preserve(
-                ["leaks", "--referenceTree", str(args.memgraph.resolve())],
+                reference_command,
                 artifact_dir,
-                "leaks-reference-tree",
+                reference_stem,
             )
             result.pop("combined")
-            extra_artifacts["reference_tree"] = result
+            result["usable"] = analyzable_leaks_status(int(result["exit_status"]))
+            if not result["usable"]:
+                warnings.append(
+                    f"{reference_key} exited above 1; preserved artifact is unusable"
+                )
+            extra_artifacts[reference_key] = result
 
     report = {
         "schema_version": 1,

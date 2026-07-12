@@ -171,6 +171,6 @@ For large syncs, use `beginBatch()`, `endBatch(withClientState:)`, and
 ## References
 
 - [App Intents](https://sosumi.ai/documentation/appintents)
-- [Making actions and content discoverable and widely available](https://developer.apple.com/documentation/appintents/making-actions-and-content-discoverable-and-widely-available)
+- [Getting started with the App Intents framework](https://sosumi.ai/documentation/appintents/getting-started-with-the-app-intents-framework)
 - [Core Spotlight](https://sosumi.ai/documentation/corespotlight)
 - [WidgetKit](https://sosumi.ai/documentation/widgetkit)

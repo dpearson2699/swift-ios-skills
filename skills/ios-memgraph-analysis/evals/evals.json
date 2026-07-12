@@ -27,7 +27,7 @@
         "Uses matching baseline and post-flow graphs and `vmmap -summary` to locate the growing memory region.",
         "Uses `heap --diffFrom=<baseline.memgraph> <post.memgraph>` to identify object types present in the post-flow heap but not the baseline.",
         "Uses `heap --addresses=<pattern> <post.memgraph>` followed by `leaks --traceTree` or a grouped reference tree for ownership clues.",
-        "Uses `malloc_history -fullStacks` only when Malloc Stack Logging evidence is available and keeps its setting identical across comparisons.",
+        "Uses a complete address-mode command such as `malloc_history post.memgraph -fullStacks <address>`, takes the address from `heap --addresses`, requires Malloc Stack Logging evidence, and keeps its setting identical across comparisons.",
         "Preserves raw tool output and avoids treating text-parser columns as a stable API."
       ]
     },
