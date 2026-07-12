@@ -1,6 +1,6 @@
 ---
 name: swiftui-layout-components
-description: "Build SwiftUI layouts using stacks, grids, lists, scroll views, forms, and controls. Covers VStack/HStack/ZStack, LazyVGrid/LazyHGrid, List with sections and swipe actions, ScrollView with ScrollPosition, Form with validation, Toggle/Picker/Slider, .searchable, and overlay patterns. Use when building data-driven layouts, collection views, settings screens, search interfaces, or transient overlay UI."
+description: "Build SwiftUI layouts using stacks, grids, lists, scroll views, forms, and controls. Covers VStack/HStack/ZStack, LazyVGrid/LazyHGrid, List with sections and swipe actions, ScrollView with ScrollPosition and scroll-driven reveal surfaces, Form with validation, Toggle/Picker/Slider, .searchable, and overlay patterns. Use when building data-driven layouts, collection views, paged detail reveals, settings screens, search interfaces, or transient overlay UI."
 ---
 
 # SwiftUI Layout & Components
@@ -147,7 +147,7 @@ ScrollView {
 }
 ```
 
-See [references/scrollview.md](references/scrollview.md) for full `ScrollPosition` patterns including scroll-to-id and user-scroll detection.
+See [references/scrollview.md](references/scrollview.md) for full `ScrollPosition` patterns, including scroll-to-id, user-scroll detection, paged primary/detail reveal surfaces, continuous progress, and zoom/crop interaction conflicts.
 
 **`safeAreaInset(edge:)`** pins content (input bars, toolbars) above the keyboard without affecting scroll layout.
 
@@ -317,6 +317,8 @@ For modal routing, sheet detents, and full-screen presentation policy, hand off 
 9. Mixing `List` and `ScrollView` in the same hierarchy -- gesture conflicts
 10. Using `.pickerStyle(.segmented)` for large option sets -- use menu or inline styles
 11. Hard-coding `spacing:` on stacks and grids by default -- omit to get platform-adaptive spacing; only specify for intentional tight (0–4pt) or wide gaps
+12. Driving one scroll reveal with offset booleans plus a parallel drag gesture -- derive one normalized progress value from scroll geometry
+13. Writing raw scroll geometry into broad app state or changing measured page geometry from that value -- keep per-frame invalidation local and avoid feedback loops
 
 ## Review Checklist
 
@@ -331,6 +333,8 @@ For modal routing, sheet detents, and full-screen presentation policy, hand off 
 - [ ] `.contentShape(Rectangle())` on tappable rows
 - [ ] `@FocusState` manages keyboard focus in forms
 - [ ] Stack/grid `spacing:` omitted unless a specific value is required
+- [ ] Scroll-driven reveals use one normalized progress value and keep geometry updates in a narrow subtree
+- [ ] Conflicting zoom/crop interactions disable scrolling, and discrete visibility effects do not drive continuous animation
 
 ## References
 

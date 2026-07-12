@@ -1,6 +1,6 @@
 ---
 name: swiftui-patterns
-description: "Builds and reviews SwiftUI views with modern MV architecture, state management, view composition, and migration/availability guidance. Covers @Observable ownership rules, @State/@Bindable/@Environment wiring, view decomposition, custom ViewModifiers, environment values, async data loading with .task, iOS 26+ handoff reminders, Writing Tools, clipboard availability caveats, and performance guidelines. Use when structuring SwiftUI app state, managing @Observable, composing view hierarchies, or correcting SwiftUI pattern guidance."
+description: "Builds and reviews SwiftUI views with modern MV architecture, state, composition, isolated previews, and migration guidance. Covers @Observable ownership, @State/@Bindable/@Environment wiring, view decomposition, ViewModifiers, environment values, .task loading, iOS 26+ handoffs, Writing Tools, clipboard availability, and performance. Use when structuring SwiftUI state, managing @Observable, composing views, previewing meaningful UI states, or correcting SwiftUI patterns."
 ---
 
 # SwiftUI Patterns
@@ -166,7 +166,19 @@ var body: some View {
 
 ### Computed View Properties
 
-Keep related subviews as computed properties in the same file; extract to a standalone `View` struct when reuse is intended or the subview carries its own state.
+Keep computed `some View` properties for small, stateless fragments. Extract a section into a dedicated `View` type when it has any of these signals:
+
+- meaningful branching or substantial layout
+- its own state or async lifecycle
+- narrower Observation dependencies than the parent
+- a useful independent preview
+- enough complexity to obscure the parent's data flow
+
+When narrowing dependencies, pass only the values, bindings, and actions the child needs. If they form a large but cohesive interface, pass a feature-scoped `@Observable` model. Observation limits invalidation to properties the child reads, but an app-wide store still creates a broad interface; reserve it for children that genuinely need that cohesive state.
+
+Reuse is a useful outcome, not a prerequisite for decomposition.
+
+Extensions and `// MARK: -` organize a large file; they do not create view boundaries or replace extraction.
 
 ```swift
 var body: some View {
@@ -218,7 +230,9 @@ extension View { func cardStyle() -> some View { modifier(CardStyle()) } }
 
 ### Stable View Tree
 
-Avoid top-level conditional view swapping. Prefer a single stable base view with conditions inside sections or modifiers. When a view file exceeds ~300 lines, split with extensions and `// MARK: -` comments.
+Avoid top-level conditional view swapping. Prefer a single stable base view with conditions inside sections or modifiers.
+
+When extracted views need independent state coverage, deterministic fixtures, or environment setup, load [Isolated Preview Construction](references/preview-isolation.md).
 
 ## Environment
 
@@ -283,6 +297,8 @@ Use `.task(id:)` to re-run when a dependency changes:
 
 Never create manual `Task` in `onAppear` unless you need to store a reference for cancellation. Exception: `Task {}` is acceptable in synchronous action closures (e.g., Button actions) for immediate state updates before async work.
 
+Use `swift-concurrency` for cancellation handlers, debounce and clocks, `AsyncSequence`, or actor isolation.
+
 ## iOS 26+ New APIs
 
 - **`.scrollEdgeEffectStyle(.soft, for: .top)`** -- fading edge effect on scroll edges
@@ -344,7 +360,7 @@ TextField("Search…", text: $query)
 4. Array indices as `ForEach` IDs -- causes incorrect diffing and UI bugs
 5. Forgetting `@Bindable` -- `$property` syntax on `@Observable` requires `@Bindable`
 6. Over-using `@State` -- only for view-local state; shared state belongs in `@Observable`
-7. Not extracting subviews -- long body blocks are hard to read and optimize
+7. Keeping complex or independently previewable sections computed -- extract `View` types; extensions and `// MARK:` only organize
 8. Using `NavigationView` -- deprecated; use `NavigationStack`
 9. Reaching for `foregroundColor(_:)` when `foregroundStyle(_:)` better matches semantic styling
 10. Inline closures in body -- extract complex closures to methods
@@ -373,6 +389,7 @@ TextField("Search…", text: $query)
 14. Hard-coding `spacing:` on every stack -- omit it to get adaptive platform spacing; only specify when the value is intentional
 15. Treating `.copyable`, `.cuttable`, or command-based `.pasteDestination(for:action:validator:)` as iOS 16/iOS 26 APIs -- they are macOS 13+ and iOS/iPadOS/Mac Catalyst 27 beta in current Apple docs. Use `UIPasteboard`, drag/drop, or `ShareLink` for iOS 26 targets.
 16. Treating modern defaults as formal deprecations -- `#Preview` is the modern preview default, but `PreviewProvider` is legacy rather than compiler-deprecated. `EditButton`, `.onDelete`, and `.onMove` remain valid for edit-mode list workflows; use `.swipeActions` for contextual row actions.
+17. Making a required dependency optional to stop a preview crash -- install deterministic preview dependencies instead, without live networking, authentication, production databases, or global singletons
 
 ## Review Checklist
 
@@ -383,7 +400,9 @@ TextField("Search…", text: $query)
 - [ ] `.task` modifier for async data loading
 - [ ] `LazyVStack`/`LazyHStack` for large collections
 - [ ] Stable `Identifiable` IDs (not array indices)
-- [ ] Views decomposed into focused subviews
+- [ ] Extraction uses branching/layout, lifecycle, dependency, preview, or parent-flow signals; small stateless fragments stay computed
+- [ ] Extensions and `// MARK:` only organize files
+- [ ] Previews cover meaningful loaded/loading/empty/error states with deterministic fixtures and every required environment dependency
 - [ ] No heavy computation in view `body`
 - [ ] Environment used for deeply shared state
 - [ ] `foregroundStyle(_:)` used when semantic styling is preferable to a fixed color
@@ -401,3 +420,4 @@ TextField("Search…", text: $query)
 - Design polish (HIG, theming, haptics, transitions, loading, focus): [references/design-polish.md](references/design-polish.md)
 - Deprecated API migration: [references/deprecated-migration.md](references/deprecated-migration.md)
 - Platform and sharing patterns (Transferable, clipboard availability, media, menus, macOS settings): [references/platform-and-sharing.md](references/platform-and-sharing.md)
+- Isolated preview construction (state coverage, fixtures, and environment dependencies): [references/preview-isolation.md](references/preview-isolation.md)

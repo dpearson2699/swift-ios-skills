@@ -6,6 +6,7 @@
 - [Core patterns](#core-patterns)
 - [Example: vertical custom feed](#example-vertical-custom-feed)
 - [ScrollPosition capabilities](#scrollposition-capabilities)
+- [Paged primary and detail reveals](#paged-primary-and-detail-reveals)
 - [Example: horizontal chips](#example-horizontal-chips)
 - [Example: adaptive grid](#example-adaptive-grid)
 - [Design choices to keep](#design-choices-to-keep)
@@ -102,6 +103,64 @@ if let currentID = scrollPosition.viewID(type: Message.ID.self) {
 }
 ```
 
+## Paged primary and detail reveals
+
+For a primary surface that pages into secondary details, let the scroll view remain the interaction source of truth. Use `ScrollPosition` for semantic or programmatic positioning, then derive one normalized progress value from scroll offset for continuous presentation.
+
+```swift
+private enum RevealPage: Hashable {
+    case primary
+    case details
+}
+
+@MainActor
+struct RevealPager: View {
+    @State private var position = ScrollPosition(idType: RevealPage.self)
+    @State private var progress: CGFloat = 0
+    @State private var isZooming = false
+    @State private var isCropping = false
+
+    var body: some View {
+        ScrollView(.vertical) {
+            LazyVStack(spacing: 0) {
+                PrimarySurface(progress: progress)
+                    .containerRelativeFrame(.vertical)
+                    .id(RevealPage.primary)
+
+                DetailSurface(progress: progress)
+                    .containerRelativeFrame(.vertical)
+                    .id(RevealPage.details)
+            }
+            .scrollTargetLayout()
+        }
+        .scrollPosition($position)
+        .scrollTargetBehavior(.paging)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            let revealDistance = max(geometry.containerSize.height, 1)
+            let offset = geometry.visibleRect.minY
+            return min(max(offset / revealDistance, 0), 1)
+        } action: { _, newProgress in
+            progress = newProgress
+        }
+        .scrollDisabled(isZooming || isCropping)
+    }
+}
+```
+
+Use the same `progress` to derive opacity, offset, scale, blur, toolbar treatment, and reveal affordances. Keep these calculations in `RevealPager`'s small presentation subtree; do not publish pixel-by-pixel offsets into a shared store or invalidate an entire screen.
+
+Avoid parallel state such as `isDetailsVisible`, `isToolbarVisible`, and a separate drag gesture that all describe the same transition. Derive thresholds from `progress` when a Boolean presentation choice is needed. Retain separate state only for a genuinely discrete event or interaction.
+
+`onScrollGeometryChange` runs as the geometry changes frequently. Transform `ScrollGeometry` into the smallest useful `Equatable` value. A scalar is appropriate for smooth progress; use a threshold `Bool` or quantized value when per-pixel precision is unnecessary.
+
+Use `onScrollVisibilityChange` or `onScrollTargetVisibilityChange` for discrete threshold-crossing effects such as deduplicated haptics, analytics, media activation, or accessibility announcements. Do not use visibility callbacks as continuous animation progress. A visibility threshold does not guarantee that paging has settled; when an effect must wait for rest, gate the discrete visibility result with an idle `onScrollPhaseChange`.
+
+Disable scrolling while a conflicting interaction owns the same gesture, such as zoom, crop, or precision editing. Remember that `.scrollDisabled` propagates through the environment to nested scrollable views.
+
+Prevent feedback loops: presentation derived from `progress` must not change the page height, content inset, or other geometry used to calculate that progress. Prefer render-only effects such as opacity, offset, scale, and blur; isolate unavoidable layout changes from the measured scroll content.
+
+> **Docs:** [ScrollPosition](https://sosumi.ai/documentation/swiftui/scrollposition) · [onScrollGeometryChange](https://sosumi.ai/documentation/swiftui/view/onscrollgeometrychange(for:of:action:)) · [onScrollVisibilityChange](https://sosumi.ai/documentation/swiftui/view/onscrollvisibilitychange(threshold:_:)) · [scrollDisabled](https://sosumi.ai/documentation/swiftui/view/scrolldisabled(_:))
+
 ## Example: horizontal chips
 
 ```swift
@@ -190,3 +249,7 @@ content
 - Overuse of `LazyVStack` for tiny content can add unnecessary complexity.
 - Apply `scrollEdgeEffectStyle` on the ScrollView, not on inner content.
 - Use `backgroundExtensionEffect()` on only one view per screen.
+- Do not mirror one reveal transition into multiple booleans or a parallel drag state machine.
+- Do not write raw per-frame scroll geometry into broad app state.
+- Do not let progress-driven layout change the geometry used to calculate progress.
+- Use visibility callbacks for discrete threshold effects, not continuous interpolation or an assumed settled state.
