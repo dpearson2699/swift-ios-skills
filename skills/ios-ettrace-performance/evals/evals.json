@@ -1,0 +1,50 @@
+{
+  "skill_name": "ios-ettrace-performance",
+  "evals": [
+    {
+      "id": 0,
+      "name": "cold-launch-capture-contract",
+      "prompt": "Our iOS Simulator app has a slow cold launch. ETTrace is already linked. Give me a reproducible capture and verification plan, including launch method, exact-build dSYMs, processed artifacts, and what evidence is strong enough to call the change an improvement.",
+      "expected_output": "A bounded ETTrace launch experiment that controls build and environment, records and fixes runner/framework versions, matches dSYMs by UUID, avoids Xcode-launch skew, preserves processed output files, distinguishes sampled attribution from wall time, and repeats comparable captures.",
+      "files": [],
+      "expectations": [
+        "Defines one launch boundary and records build, ETTrace runner/framework versions and mode, target, OS, data/cache state, and repetition count.",
+        "Uses ETTrace launch mode and follows the runner's launch prompts while launching from the Home Screen rather than Xcode.",
+        "Collects dSYMs only after the final instrumented build and verifies app/embedded-binary architecture UUIDs.",
+        "Preserves fresh `output_<threadId>.json` files and does not confuse internal raw `output.json` with processed flamegraph output.",
+        "Interprets ETTrace as periodically sampled stack evidence rather than overhead-free wall-clock timing.",
+        "Requires repeated before/after runs under one capture contract before claiming improvement."
+      ]
+    },
+    {
+      "id": 1,
+      "name": "processed-json-evidence-review",
+      "prompt": "I have output_481.json with a nested `nodes` tree, plus another ETTrace runner file named output.json without `nodes`. Explain how to analyze these safely, what inclusive and exclusive time mean, and what to do if the hottest frames are `<unknown>`.",
+      "expected_output": "A schema-aware analysis that accepts only processed ETTrace node files, rejects raw runner output, uses inclusive and exclusive time correctly, preserves originals, and repairs symbolication before recommending code changes.",
+      "files": [],
+      "expectations": [
+        "Identifies `output_<threadId>.json` with top-level `nodes` as the processed v1.1.1 artifact and rejects the raw file lacking `nodes`.",
+        "Accounts for the processed serializer representing `children` as either one object or an array.",
+        "Defines exclusive time as parent duration minus direct child durations and inclusive time as subtree weight.",
+        "Notes that aggregated inclusive time can exceed root duration and summed thread time is not wall-clock elapsed time.",
+        "Preserves source JSON and emits bounded structured analysis rather than rewriting capture evidence.",
+        "Stops to repair dSYM/symbolication gaps before optimizing unknown addresses."
+      ]
+    },
+    {
+      "id": 2,
+      "name": "invalid-comparison-boundary",
+      "prompt": "Build A was a Debug single-thread runtime ETTrace capture launched from Xcode. Build B was Release, multi-thread, `--launch`, and opened from the Home Screen. Build B's top exclusive symbol is 30% lower. Can we call that a win? Also tell me whether this belongs in generic Instruments guidance.",
+      "expected_output": "A boundary-aware rejection of the invalid comparison, followed by a controlled rerun design and a clear distinction between ETTrace-specific work and generic Instruments profiling.",
+      "files": [],
+      "expectations": [
+        "Rejects the 30% improvement claim because build, thread mode, capture mode, and launch method differ.",
+        "Requires both versions to use the same configuration, architecture, recorded runner/framework versions, ETTrace mode, launch method, user flow, and environment.",
+        "Requires fresh UUID-matched dSYMs for each rebuilt version.",
+        "Requires multiple comparable runs and reports variance or run-level results.",
+        "Keeps ETTrace capture and processed JSON analysis in this skill while routing generic CPU/hitch triage to debugging-instruments.",
+        "Does not present summed multi-thread duration as elapsed launch time."
+      ]
+    }
+  ]
+}

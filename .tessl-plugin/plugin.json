@@ -1,6 +1,6 @@
 {
   "name": "dpearson2699/swift-ios-skills",
-  "version": "3.7.0",
+  "version": "3.8.0",
   "description": "Agent skills for iOS, iPadOS, Swift, SwiftUI, and modern Apple framework development.",
   "private": false,
   "repository": "https://github.com/dpearson2699/swift-ios-skills",
@@ -42,7 +42,9 @@
     "skills/healthkit",
     "skills/homekit",
     "skills/ios-accessibility",
+    "skills/ios-ettrace-performance",
     "skills/ios-localization",
+    "skills/ios-memgraph-analysis",
     "skills/ios-networking",
     "skills/ios-simulator",
     "skills/mapkit",

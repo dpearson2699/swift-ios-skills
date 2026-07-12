@@ -1,0 +1,21 @@
+{
+  "context": "Tests whether the agent rejects a confounded ETTrace result and constructs a controlled comparison.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {"name": "Claim rejection", "description": "Explicitly rejects the reported 35% improvement as unsupported.", "max_score": 8},
+    {"name": "Build confound", "description": "Identifies Debug versus Release as an invalidating build-configuration difference.", "max_score": 7},
+    {"name": "Capture-mode confound", "description": "Identifies runtime capture versus launch capture as a distinct invalidating mode difference.", "max_score": 7},
+    {"name": "Thread-mode confound", "description": "Identifies single-thread versus multi-thread capture as a distinct invalidating scope difference.", "max_score": 7},
+    {"name": "Runner version", "description": "Records the ETTrace runner version as its own field and holds it fixed across the comparison.", "max_score": 6},
+    {"name": "Framework version", "description": "Records the linked ETTrace framework revision as its own field and holds it fixed across the comparison.", "max_score": 6},
+    {"name": "Cache state", "description": "Identifies warm versus cold cache state as invalidating and holds one data/cache state fixed.", "max_score": 6},
+    {"name": "Launch method", "description": "Identifies Xcode versus Home Screen launch as invalidating and uses the same Home Screen method for both sides.", "max_score": 6},
+    {"name": "Normalized contract", "description": "Defines one bounded search flow and controls architecture, simulator/OS, app data, user flow, and all previously identified dimensions.", "max_score": 10},
+    {"name": "Fresh symbol matching", "description": "Requires fresh architecture UUID-matched dSYMs for each rebuilt before/after app.", "max_score": 8},
+    {"name": "Clean run directories", "description": "Uses a fresh, empty artifact directory for every capture repetition.", "max_score": 6},
+    {"name": "Processed artifacts", "description": "Preserves the processed numbered output files together with the capture contract for each run.", "max_score": 6},
+    {"name": "Repeated evidence", "description": "Requires multiple runs for each version and reports run-level results or variance.", "max_score": 8},
+    {"name": "Thread-time meaning", "description": "Rejects the sum of multi-thread roots as wall-clock elapsed time.", "max_score": 5},
+    {"name": "Profiler routing", "description": "Routes broad delay localization to Instruments first when the slow subsystem or interval is still unknown.", "max_score": 4}
+  ]
+}

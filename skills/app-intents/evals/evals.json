@@ -42,6 +42,21 @@
         "Mentions that `SnippetIntent.perform()` may run multiple times and should avoid side effects while rendering snippet state.",
         "Keeps detailed WidgetKit layout/timeline architecture outside the App Intents checklist except where it affects protocol choice."
       ]
+    },
+    {
+      "id": 3,
+      "name": "action-first-inline-handoff-design",
+      "prompt": "We have a grocery app with Browse, Cart, and Checkout screens. Design the first App Intents we should ship. Users often add a previous item again, check the current cart total, and resume a checkout that needs payment confirmation. Explain which actions should finish inline versus open the app, and how to avoid duplicating business logic or navigation side effects.",
+      "expected_output": "An action-first App Intents design that starts from high-value work outside the app, distinguishes inline results from a deliberate app handoff, shares domain services, and centralizes runtime routing before selecting protocols or system surfaces.",
+      "files": [],
+      "expectations": [
+        "Selects a small set of user actions rather than mapping the Browse, Cart, and Checkout screen hierarchy directly to intents.",
+        "Treats adding a previous item and checking the cart total as candidates for inline completion or results when authentication and confirmation requirements allow.",
+        "Treats payment confirmation as an app handoff to a specific checkout destination rather than pretending every action should finish inline.",
+        "Keeps cart mutation and lookup logic in shared domain services used by both the app and intent variants.",
+        "Uses one explicit runtime route or handoff destination instead of placing ad hoc navigation side effects in each intent.",
+        "Chooses App Intent protocols and system surfaces after defining the action and execution boundary."
+      ]
     }
   ]
 }

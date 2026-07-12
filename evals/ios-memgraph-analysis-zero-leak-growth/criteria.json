@@ -1,0 +1,16 @@
+{
+  "context": "Tests the distinct workflow for persistent heap growth when unreachable-leak scanning is empty, including region, heap, address, ownership, and allocation evidence.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {"name": "Zero-leak meaning", "description": "States that zero unreachable leaks does not rule out reachable abandoned objects, expected caches, buffers, heap regression, or fragmentation.", "max_score": 10},
+    {"name": "Matched graphs", "description": "Requires baseline and post-flow graphs from the same build, runtime target, data, flow, cleanup wait, and Malloc Stack Logging setting.", "max_score": 10},
+    {"name": "Region comparison", "description": "Runs vmmap -summary on both graphs before choosing heap-specific analysis and uses the comparison to locate the growing region.", "max_score": 10},
+    {"name": "Heap diff shape", "description": "Uses the exact current command shape heap --diffFrom=baseline.memgraph post.memgraph for malloc-region growth.", "max_score": 10},
+    {"name": "Address lookup", "description": "Uses heap --addresses='<class-or-size-pattern>' post.memgraph to obtain concrete addresses for a suspicious type or size.", "max_score": 10},
+    {"name": "No-MSL path", "description": "Uses a bounded leaks --traceTree=<address> query when Malloc Stack Logging is unavailable.", "max_score": 10},
+    {"name": "MSL path", "description": "Uses malloc_history -fullStacks when Malloc Stack Logging is present and does not compare that run with logging-disabled captures.", "max_score": 10},
+    {"name": "Aggregate ownership", "description": "Uses leaks --referenceTree --groupByType when aggregate ownership clues are more useful than one address.", "max_score": 10},
+    {"name": "Raw artifacts", "description": "Preserves every raw command result with the graph pair and directs the operator to check each installed tool's --help for evolving flags.", "max_score": 10},
+    {"name": "Attributable proof", "description": "Verifies the identical repeated flow and requires removal or a justified bound for growth attributable to the same app type or allocation rather than relying on RSS alone.", "max_score": 10}
+  ]
+}
