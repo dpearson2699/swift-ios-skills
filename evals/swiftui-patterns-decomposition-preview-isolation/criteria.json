@@ -1,0 +1,56 @@
+{
+  "context": "Tests whether the solution applies the skill's decomposition criteria and constructs deterministic, dependency-complete SwiftUI previews without weakening production contracts.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {
+      "name": "Keep small fragment",
+      "description": "Keeps the short stateless header as a computed some View fragment rather than extracting it solely because the file is long.",
+      "max_score": 10
+    },
+    {
+      "name": "Extract activity view",
+      "description": "Extracts the activity area into a dedicated View based on meaningful branching or substantial layout.",
+      "max_score": 10
+    },
+    {
+      "name": "Lifecycle boundary",
+      "description": "Treats the activity area's asynchronous lifecycle or local state as an extraction signal.",
+      "max_score": 10
+    },
+    {
+      "name": "Narrow dependencies",
+      "description": "Gives the extracted view narrow values and actions or otherwise limits its Observation dependencies instead of passing unrelated store state.",
+      "max_score": 10
+    },
+    {
+      "name": "Previewable boundary",
+      "description": "Uses independent preview value or clearer parent data flow as a reason for the dedicated View boundary without requiring reuse.",
+      "max_score": 10
+    },
+    {
+      "name": "Organization distinction",
+      "description": "States that extensions and section markers organize a file but do not replace actual view decomposition.",
+      "max_score": 10
+    },
+    {
+      "name": "State coverage",
+      "description": "Covers deterministic loaded plus meaningful loading, empty, and error preview states.",
+      "max_score": 10
+    },
+    {
+      "name": "Required dependencies",
+      "description": "Keeps required production dependencies nonoptional and installs every required environment dependency in the preview composition.",
+      "max_score": 10
+    },
+    {
+      "name": "Isolated fixtures",
+      "description": "Uses fixed fixtures and isolated in-memory or temporary persistence without live networking, authentication, production databases, keychain state, or global singletons.",
+      "max_score": 10
+    },
+    {
+      "name": "Concurrency handoff",
+      "description": "Keeps basic task-lifecycle guidance local but routes advanced cancellation, debounce, clocks, AsyncSequence, or actor-isolation details to swift-concurrency.",
+      "max_score": 10
+    }
+  ]
+}

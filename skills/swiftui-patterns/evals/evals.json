@@ -45,6 +45,23 @@
         "Routes detailed matched hero transition implementation to `swiftui-animation`.",
         "Routes iOS 26 Liquid Glass and scroll-edge visual treatment details to `swiftui-liquid-glass`."
       ]
+    },
+    {
+      "id": 3,
+      "name": "decomposition-and-preview-isolation",
+      "prompt": "Review a 420-line SwiftUI account dashboard. Its header is a small stateless computed `some View`; its activity section has substantial branching, starts async work, reads only two properties from a large @Observable store, and would be useful to preview alone. The file is split into extensions with `// MARK:` headings. Its current preview makes dependencies optional to avoid crashes and then loads the signed-in user from the live API and production SwiftData store. Give a focused refactor and preview-construction plan, and say where advanced cancellation and search debounce guidance belongs.",
+      "expected_output": "A focused SwiftUI patterns review that keeps the tiny stateless header computed, extracts the complex activity section into a dedicated View based on branching/lifecycle/dependency/preview/data-flow signals, treats extensions and MARK comments as organization only, builds deterministic loaded/loading/empty/error previews with every required dependency and isolated persistence installed, preserves required dependency types, avoids live services and global state, and routes advanced cancellation/debounce to swift-concurrency.",
+      "files": [],
+      "assertions": [
+        "Uses meaningful branching or substantial layout, local state or async lifecycle, narrower Observation dependencies, independent preview value, and parent data-flow clarity as extraction signals rather than requiring reuse.",
+        "Keeps the small stateless header as a computed `some View` property.",
+        "Explains that extensions and `// MARK:` headings organize a file but do not replace dedicated-view decomposition.",
+        "Covers deterministic loaded, meaningful loading, empty, and error preview states.",
+        "Installs every required environment dependency and uses isolated in-memory or temporary persistence fixtures.",
+        "Avoids live networking, authentication, production databases, keychain state, and global singletons in previews.",
+        "Keeps required dependencies nonoptional and fixes preview composition instead of weakening production types.",
+        "Routes advanced cancellation, debounce, clocks, or AsyncSequence details to the `swift-concurrency` skill."
+      ]
     }
   ]
 }

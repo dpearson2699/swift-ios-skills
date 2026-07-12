@@ -1,0 +1,56 @@
+{
+  "context": "Tests whether the solution uses the skill's modern scroll-driven reveal pattern, separates continuous presentation from discrete effects, and contains per-frame geometry work.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {
+      "name": "Modern position",
+      "description": "Uses typed ScrollPosition for semantic or programmatic position on the iOS 26 baseline and does not claim ScrollViewReader is deprecated.",
+      "max_score": 10
+    },
+    {
+      "name": "Paged targets",
+      "description": "Uses stable targets with scrollTargetLayout and paging or an equivalent modern settling behavior for the primary and details surfaces.",
+      "max_score": 10
+    },
+    {
+      "name": "Single progress",
+      "description": "Derives one clamped normalized progress value from scroll geometry using onScrollGeometryChange and a small Equatable transform result.",
+      "max_score": 10
+    },
+    {
+      "name": "Shared effects",
+      "description": "Derives opacity, offset, scale, blur, toolbar treatment, and reveal affordances from the shared progress value.",
+      "max_score": 10
+    },
+    {
+      "name": "No mirror flags",
+      "description": "Removes or rejects duplicated stored booleans that mirror the same continuous reveal transition.",
+      "max_score": 10
+    },
+    {
+      "name": "No parallel drag",
+      "description": "Keeps the scroll view as the interaction source of truth and removes or rejects the competing drag state machine.",
+      "max_score": 10
+    },
+    {
+      "name": "Discrete effects",
+      "description": "Uses visibility callbacks only for deduplicated discrete threshold effects and gates truly settled timing with an idle scroll phase rather than treating visibility as continuous progress or guaranteed rest.",
+      "max_score": 10
+    },
+    {
+      "name": "Gesture arbitration",
+      "description": "Disables scrolling during conflicting zoom, crop, or precision-editing interactions with scrollDisabled or an equivalent explicit ownership boundary.",
+      "max_score": 10
+    },
+    {
+      "name": "Narrow invalidation",
+      "description": "Keeps raw geometry and per-frame progress out of broad shared state and limits invalidation to a small presentation subtree.",
+      "max_score": 10
+    },
+    {
+      "name": "No feedback loop",
+      "description": "Prevents progress-driven presentation from changing the page height, content inset, or other geometry used to calculate progress and stays within layout/component scope.",
+      "max_score": 10
+    }
+  ]
+}

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## v3.7.0
+
+### Repository
+
+- Bump the Tessl plugin and Claude Code marketplace metadata to 3.7.0.
+- Add focused local Agent Skills eval coverage and promoted Tessl scenarios for SwiftUI view decomposition, preview isolation, and scroll-driven reveal surfaces.
+
+### Skill updates
+
+- Expand `swiftui-patterns` with concrete view-decomposition signals, focused value/action interfaces for narrowing Observation dependencies, and an explicit distinction between file organization and dedicated `View` boundaries.
+- Add isolated preview-construction guidance covering deterministic loaded, loading, empty, and error states; complete required dependency installation; in-memory persistence; and avoidance of live services, authentication, production data, keychain state, and global singletons.
+- Route advanced cancellation, debounce, clocks, `AsyncSequence`, and actor-isolation details from `swiftui-patterns` to `swift-concurrency`.
+- Add paged primary/detail reveal guidance to `swiftui-layout-components` using `ScrollPosition`, normalized `onScrollGeometryChange` progress, shared continuous effects, discrete settled-state callbacks, scroll arbitration during zoom or crop, and safeguards against geometry feedback loops and broad per-frame invalidation.
+
 ## v3.6.1
 
 ### Skill updates

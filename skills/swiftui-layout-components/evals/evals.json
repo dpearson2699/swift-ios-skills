@@ -38,6 +38,22 @@
         "Does not provide detailed NavigationStack routing or deep-link implementation as if owned by this skill.",
         "Keeps any layout advice concise and scoped to the form/control surfaces inside the onboarding flow."
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "Design the layout behavior for an iOS 26 SwiftUI editor whose primary canvas pages vertically into a secondary detail surface. The scroll offset should progressively fade and scale the canvas, reveal a toolbar, and update an affordance. The current prototype also tracks three reveal booleans plus a duplicate DragGesture, fires haptics from per-frame geometry, and fights scrolling while zooming or cropping. Keep the answer within layout/component scope.",
+      "expected_output": "A modern scroll-driven reveal pattern that uses ScrollPosition and paging, derives one clamped normalized progress value through a narrow onScrollGeometryChange transform, drives all continuous effects from it, reserves visibility/settled callbacks for deduplicated discrete effects, disables scrolling during conflicting interactions, and avoids geometry feedback loops and broad per-frame invalidation.",
+      "files": [],
+      "expectations": [
+        "Prefers `ScrollPosition` for the iOS 26 baseline without falsely claiming `ScrollViewReader` is deprecated.",
+        "Derives one clamped normalized progress value from scroll offset with a small `Equatable` `onScrollGeometryChange` transform.",
+        "Drives opacity, offset, scale, blur, toolbar treatment, and affordances from the shared progress rather than duplicated booleans.",
+        "Removes the parallel drag-gesture state machine and keeps the scroll view as the interaction source of truth.",
+        "Uses visibility callbacks only for discrete threshold effects and does not treat them as continuous progress or guaranteed settled paging.",
+        "Disables scrolling during conflicting zoom or crop interactions with `.scrollDisabled`.",
+        "Keeps per-frame invalidation in a narrow presentation subtree and avoids publishing raw geometry into broad app state.",
+        "Prevents progress-driven layout from changing the geometry used to calculate progress and stays within layout/component scope."
+      ]
     }
   ]
 }
