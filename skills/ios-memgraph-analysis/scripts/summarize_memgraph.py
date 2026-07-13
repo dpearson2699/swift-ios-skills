@@ -181,6 +181,9 @@ def main() -> int:
             print(f"could not create fresh raw artifacts: {error}", file=sys.stderr)
             return 2
         raw = str(list_run.pop("combined"))
+        preview_truncated = bool(
+            list_run["stdout_preview_truncated"] or list_run["stderr_preview_truncated"]
+        )
         source = {"memgraph": str(args.memgraph.resolve()), "list_command": list_run}
     else:
         if not args.list_output.is_file():
@@ -189,9 +192,12 @@ def main() -> int:
         if args.trace_limit or args.group_by_type or args.reference_tree:
             print("trace/reference options require a live memgraph, not --list-output", file=sys.stderr)
             return 2
-        raw = args.list_output.read_text(encoding="utf-8")
+        raw, preview_truncated = bounded_text(args.list_output)
         artifact_dir = None
-        source = {"list_output": str(args.list_output.resolve())}
+        source = {
+            "list_output": str(args.list_output.resolve()),
+            "preview_truncated": preview_truncated,
+        }
 
     if live and not analyzable_leaks_status(int(source["list_command"]["exit_status"])):
         report = {
@@ -221,6 +227,11 @@ def main() -> int:
     warnings: list[str] = [
         "Apple leaks text is parsed best-effort; raw output remains authoritative."
     ]
+    if preview_truncated:
+        warnings.append(
+            "Parsing used a bounded head/tail preview because raw output exceeded 1 MiB; "
+            "inspect the preserved source for omitted detail."
+        )
     if parsed["reported_count"] and not parsed["entries"]:
         warnings.append("leaks reported entries, but this tool parsed none; inspect raw output")
 
