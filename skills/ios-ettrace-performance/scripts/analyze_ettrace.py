@@ -101,11 +101,14 @@ def analyze_file(
         children = child_nodes(node.get("children"), f"{location}.children", path)
         child_duration = 0.0
         for index, child in enumerate(children):
-            child_duration += nonnegative_number(
+            duration_value = nonnegative_number(
                 child.get("duration"),
                 f"{location}.children[{index}].duration",
                 path,
             )
+            is_separator = child.get("name") == "" and child.get("library", "") == ""
+            if not is_separator:
+                child_duration += duration_value
             stack.append((child, f"{location}.children[{index}]"))
 
         exclusive = duration - child_duration
@@ -117,8 +120,7 @@ def analyze_file(
             )
         exclusive = max(0.0, exclusive)
 
-        is_blank = name == "" and library == ""
-        if name == "<unattributed>" or is_blank:
+        if name == "<unattributed>":
             unattributed += exclusive
         is_unresolved = name == "<unknown>" or library == "<unknown>" or address is not None
         if is_unresolved:

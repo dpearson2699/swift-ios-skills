@@ -54,7 +54,7 @@ def exact_label(label: str, bundle_id: str) -> bool:
     escaped = re.escape(bundle_id)
     patterns = (
         rf"^{escaped}$",
-        rf"^UIKitApplication:{escaped}(?:\[[^]]+\])*$",
+        rf"^(?:com\.apple\.)?UIKitApplication:{escaped}(?:\[[^]]+\])*$",
         rf"^application<{escaped}>$",
     )
     return any(re.fullmatch(pattern, label) for pattern in patterns)

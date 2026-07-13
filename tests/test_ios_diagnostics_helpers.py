@@ -88,20 +88,26 @@ class AnalyzeETTraceTests(unittest.TestCase):
         self.assertEqual(report["totals"]["unresolved_exclusive_seconds"], 1.0)
         self.assertEqual(report["files"][0]["unresolved_frames"][0]["address"], 0x1234)
 
-    def test_blank_symbol_and_library_are_counted_as_unattributed(self) -> None:
+    def test_blank_terminal_separator_preserves_parent_exclusive_time(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             capture = Path(directory) / "output_1.json"
             document = processed_document()
-            document["nodes"]["children"]["name"] = ""
-            document["nodes"]["children"]["library"] = ""
+            document["nodes"]["children"]["children"] = {
+                "name": "",
+                "library": "",
+                "start": 0,
+                "duration": 1,
+                "children": [],
+            }
             capture.write_text(json.dumps(document), encoding="utf-8")
 
             status, output, _ = self.run_main(str(capture))
 
         self.assertEqual(status, 0)
         report = json.loads(output)
-        self.assertEqual(report["hotspots"], [])
-        self.assertEqual(report["totals"]["unattributed_exclusive_seconds"], 1.0)
+        self.assertEqual(report["hotspots"][0]["symbol"], "KnownLookingFrame")
+        self.assertEqual(report["hotspots"][0]["exclusive_seconds"], 1.0)
+        self.assertEqual(report["totals"]["unattributed_exclusive_seconds"], 0.0)
 
     def test_duplicate_processed_capture_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -233,6 +239,17 @@ class CollectDSYMTests(unittest.TestCase):
 
 
 class CaptureMemgraphTests(unittest.TestCase):
+    def test_exact_label_accepts_optional_apple_uikit_prefix(self) -> None:
+        bundle_id = "com.example.MyApp"
+
+        self.assertTrue(CAPTURE.exact_label(f"UIKitApplication:{bundle_id}[abc]", bundle_id))
+        self.assertTrue(
+            CAPTURE.exact_label(f"com.apple.UIKitApplication:{bundle_id}[abc]", bundle_id)
+        )
+        self.assertFalse(
+            CAPTURE.exact_label("com.apple.UIKitApplication:com.example.Other[abc]", bundle_id)
+        )
+
     def test_booted_devices_ignores_non_ios_runtimes(self) -> None:
         document = {
             "devices": {
