@@ -117,7 +117,8 @@ def analyze_file(
             )
         exclusive = max(0.0, exclusive)
 
-        if name == "<unattributed>":
+        is_blank = name == "" and library == ""
+        if name == "<unattributed>" or is_blank:
             unattributed += exclusive
         is_unresolved = name == "<unknown>" or library == "<unknown>" or address is not None
         if is_unresolved:

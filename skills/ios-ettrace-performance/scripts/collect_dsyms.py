@@ -83,16 +83,6 @@ def dsym_binaries(bundle: Path) -> list[Path]:
 
 def ettrace_destination_name(binary: Path) -> tuple[str, str | None]:
     """Return the exact flat dSYM name ETTrace v1.1.1 looks up."""
-    if binary.suffix == ".dylib":
-        return (
-            f"{binary.name}.app.dSYM",
-            "ETTrace v1.1.1 has no verified flat lookup convention for app-embedded dylibs",
-        )
-    if any(parent.suffix == ".appex" for parent in binary.parents):
-        return (
-            f"{binary.name}.app.dSYM",
-            "ETTrace v1.1.1 has no verified flat lookup convention for app extensions",
-        )
     extension = "framework" if any(parent.suffix == ".framework" for parent in binary.parents) else "app"
     return f"{binary.name}.{extension}.dSYM", None
 

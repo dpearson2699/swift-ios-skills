@@ -28,6 +28,8 @@ def booted_devices() -> list[dict[str, str]]:
         raise RuntimeError(f"simctl returned malformed JSON: {error}") from error
     devices: list[dict[str, str]] = []
     for runtime, values in document.get("devices", {}).items():
+        if not runtime.startswith("com.apple.CoreSimulator.SimRuntime.iOS-"):
+            continue
         for item in values:
             if item.get("state") == "Booted" and item.get("isAvailable", True):
                 devices.append(
@@ -107,6 +109,16 @@ def main() -> int:
     if not shutil.which("xcrun") or not shutil.which("leaks"):
         print("xcrun and leaks must both be available on PATH", file=sys.stderr)
         return 2
+
+    output = args.output_dir.resolve()
+    if output.exists() and (not output.is_dir() or any(output.iterdir())):
+        print(
+            f"--output-dir must be an empty directory to prevent stale captures: {output}",
+            file=sys.stderr,
+        )
+        return 2
+    output.mkdir(parents=True, exist_ok=True)
+
     try:
         device = choose_device(booted_devices(), args.udid)
         candidates = process_candidates(device["udid"], args.bundle_id)
@@ -120,8 +132,6 @@ def main() -> int:
         )
         return 3
 
-    output = args.output_dir.resolve()
-    output.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     safe_bundle = re.sub(r"[^A-Za-z0-9_.-]", "_", args.bundle_id)
     pid = candidates[0]["pid"]

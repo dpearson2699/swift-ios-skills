@@ -88,6 +88,21 @@ class AnalyzeETTraceTests(unittest.TestCase):
         self.assertEqual(report["totals"]["unresolved_exclusive_seconds"], 1.0)
         self.assertEqual(report["files"][0]["unresolved_frames"][0]["address"], 0x1234)
 
+    def test_blank_symbol_and_library_are_counted_as_unattributed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            capture = Path(directory) / "output_1.json"
+            document = processed_document()
+            document["nodes"]["children"]["name"] = ""
+            document["nodes"]["children"]["library"] = ""
+            capture.write_text(json.dumps(document), encoding="utf-8")
+
+            status, output, _ = self.run_main(str(capture))
+
+        self.assertEqual(status, 0)
+        report = json.loads(output)
+        self.assertEqual(report["hotspots"], [])
+        self.assertEqual(report["totals"]["unattributed_exclusive_seconds"], 1.0)
+
     def test_duplicate_processed_capture_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             capture = Path(directory) / "output_1.json"
@@ -111,6 +126,13 @@ class AnalyzeETTraceTests(unittest.TestCase):
 
 
 class CollectDSYMTests(unittest.TestCase):
+    def test_in_app_non_framework_binaries_use_app_destination(self) -> None:
+        dylib = Path("/Build/MyApp.app/Frameworks/Feature.dylib")
+        extension = Path("/Build/MyApp.app/PlugIns/Widget.appex/Widget")
+
+        self.assertEqual(COLLECT.ettrace_destination_name(dylib), ("Feature.dylib.app.dSYM", None))
+        self.assertEqual(COLLECT.ettrace_destination_name(extension), ("Widget.app.dSYM", None))
+
     def test_ettrace_destination_collision_is_rejected_by_plan(self) -> None:
         matches = [
             {
@@ -211,6 +233,44 @@ class CollectDSYMTests(unittest.TestCase):
 
 
 class CaptureMemgraphTests(unittest.TestCase):
+    def test_booted_devices_ignores_non_ios_runtimes(self) -> None:
+        document = {
+            "devices": {
+                "com.apple.CoreSimulator.SimRuntime.iOS-26-5": [
+                    {"udid": "PHONE", "name": "iPhone", "state": "Booted", "isAvailable": True}
+                ],
+                "com.apple.CoreSimulator.SimRuntime.watchOS-26-5": [
+                    {"udid": "WATCH", "name": "Watch", "state": "Booted", "isAvailable": True}
+                ],
+            }
+        }
+        result = subprocess.CompletedProcess(["xcrun"], 0, json.dumps(document), "")
+
+        with mock.patch.object(CAPTURE, "run", return_value=result):
+            devices = CAPTURE.booted_devices()
+
+        self.assertEqual([device["udid"] for device in devices], ["PHONE"])
+
+    def test_existing_nonempty_output_is_rejected_before_capture(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output_dir = Path(directory) / "capture"
+            output_dir.mkdir()
+            (output_dir / "stale.memgraph").write_bytes(b"old")
+            args = argparse.Namespace(
+                bundle_id="com.example.MyApp", output_dir=output_dir, udid=None, pretty=False
+            )
+            stderr = io.StringIO()
+
+            with mock.patch.object(CAPTURE, "parse_args", return_value=args):
+                with mock.patch.object(CAPTURE.shutil, "which", return_value="/usr/bin/tool"):
+                    with mock.patch.object(CAPTURE, "run") as run:
+                        with redirect_stderr(stderr):
+                            status = CAPTURE.main()
+
+        self.assertEqual(status, 2)
+        self.assertEqual(run.call_count, 0)
+        self.assertIn("prevent stale captures", stderr.getvalue())
+
     def test_leaks_error_and_empty_graph_fail_but_preserve_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output_dir = Path(directory) / "capture"
