@@ -75,8 +75,9 @@ struct MyWidget: Widget {
 
 Expose controls in Control Center and Lock Screen with `ControlConfigurationIntent`
 and `ControlWidget`. Parameters without defaults must be optional.
-Trigger state changes from a separate `AppIntent` / `SetValueIntent` with
-explicit entity parameters, not from the configuration intent.
+Trigger state changes from a separate action intent with explicit entity
+parameters, not from the configuration intent. Use `AppIntent` or `OpenIntent`
+for control buttons and `SetValueIntent` for control toggles.
 
 ```swift
 struct LightControlConfig: ControlConfigurationIntent {
@@ -84,18 +85,21 @@ struct LightControlConfig: ControlConfigurationIntent {
     @Parameter(title: "Light", default: .livingRoom) var light: LightEntity
 }
 
-struct ToggleLightIntent: AppIntent {
-    static var title: LocalizedStringResource = "Toggle Light"
+struct SetLightIntent: SetValueIntent {
+    static var title: LocalizedStringResource = "Set Light"
     static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
 
+    init() {}
+
+    init(light: LightEntity) {
+        self.light = light
+    }
+
     @Parameter(title: "Light") var light: LightEntity
+    @Parameter(title: "Light is on") var value: Bool
 
     func perform() async throws -> some IntentResult {
-        try await requestConfirmation(
-            actionName: .toggle,
-            dialog: "Toggle \(light.name)?"
-        )
-        try await LightService.shared.toggle(light.id)
+        try await LightService.shared.setLight(light.id, isOn: value)
         return .result()
     }
 }
@@ -103,11 +107,17 @@ struct ToggleLightIntent: AppIntent {
 struct LightControl: ControlWidget {
     var body: some ControlWidgetConfiguration {
         AppIntentControlConfiguration(kind: "LightControl", intent: LightControlConfig.self) { config in
-            ControlWidgetToggle(config.light.name, isOn: config.light.isOn, action: ToggleLightIntent(light: config.light))
+            ControlWidgetToggle(config.light.name, isOn: config.light.isOn, action: SetLightIntent(light: config.light))
         }
     }
 }
 ```
+
+The system supplies `SetValueIntent.value` with the toggle's requested new state.
+Do not derive or invert that value yourself. Persist the new state before
+`perform()` returns so WidgetKit reloads the control consistently.
+
+Apple reference: [Creating controls to perform actions across the system](https://sosumi.ai/documentation/widgetkit/creating-controls-to-perform-actions-across-the-system)
 
 ## Spotlight and IndexedEntity (iOS 18+)
 

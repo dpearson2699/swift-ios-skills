@@ -38,7 +38,7 @@
       "expectations": [
         "Uses `WidgetConfigurationIntent` for configurable widget parameters and `ControlConfigurationIntent` for Control Center or Lock Screen control configuration.",
         "States that a `ControlConfigurationIntent` parameter without a default value must be optional so the system can preview the control before configuration.",
-        "Separates reusable action intents from configuration intents and notes that configuration intents do not need `perform()` unless reused as actions.",
+        "Separates reusable action intents from configuration intents, uses `SetValueIntent` with the system-supplied Boolean `value` for the toggle, and notes that configuration intents do not need `perform()` unless reused as actions.",
         "Mentions that `SnippetIntent.perform()` may run multiple times and should avoid side effects while rendering snippet state.",
         "Keeps detailed WidgetKit layout/timeline architecture outside the App Intents checklist except where it affects protocol choice."
       ]
