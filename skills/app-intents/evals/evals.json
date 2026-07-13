@@ -71,6 +71,20 @@
         "Uses `defaultResult()` only for a genuinely useful stable default and does not choose an arbitrary first result.",
         "States the iOS 17+ availability of `IntentParameterDependency`."
       ]
+    },
+    {
+      "id": 5,
+      "name": "fixed-size-entity-array",
+      "prompt": "An iOS 26 widget configuration must let a person select exactly three FavoriteEntity values. A review says every App Intents entity-array size initializer is deprecated, so the parameter should be an unconstrained array and reject the count only in perform(). Correct the design.",
+      "expected_output": "A current App Intents parameter that uses the supported iOS 18+ size overload to express the three-item UI constraint and also validates the count at execution, while distinguishing deprecated iOS 17 overloads from their replacements.",
+      "files": [],
+      "expectations": [
+        "Uses the current `@Parameter(..., size: .init(exactly: 3))` form, or an equivalent `IntentCollectionSize`, for the fixed-size entity array.",
+        "Explains that Apple deprecated older iOS 17 overloads but provides supported iOS 18+ replacements with `size:`.",
+        "Keeps a count check in `perform()` as execution-boundary validation instead of relying only on system UI.",
+        "Does not replace a required fixed cardinality with an unconstrained array.",
+        "Uses a range with `IntentCollectionSize(min:max:)` only when the product requirement is actually bounded rather than exact."
+      ]
     }
   ]
 }
