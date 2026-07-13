@@ -1,11 +1,14 @@
 ---
 name: debugging-instruments
-description: "Debug iOS apps and profile performance using LLDB, Memory Graph Debugger, and Instruments. Use when diagnosing crashes, memory leaks, retain cycles, main thread hangs, slow rendering, build failures, or when profiling CPU, memory, energy, and network usage."
+description: "Debug iOS apps and profile performance using LLDB, the interactive Memory Graph Debugger, and Instruments. Use for crashes, retain-cycle inspection, hangs, build failures, and generic CPU, memory, energy, or network profiling. Use ios-memgraph-analysis for .memgraph capture, leaks CLI ownership paths, or persistent heap growth; use ios-ettrace-performance for ETTrace capture and JSON."
 ---
 
 # Debugging and Instruments
 
 Diagnose crashes, memory leaks, retain cycles, main thread hangs, and performance bottlenecks in iOS apps using LLDB, Memory Graph Debugger, and Instruments. Covers breakpoint workflows, memory graph analysis, hang detection, build failure triage, and Instruments profiling for CPU, memory, energy, and network.
+
+Keep interactive graph and Instruments triage here. Route detailed `.memgraph`
+command-line ownership/growth analysis and ETTrace work to their focused skills.
 
 ## Contents
 

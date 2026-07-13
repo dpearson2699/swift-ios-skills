@@ -17,10 +17,7 @@ Shortcuts, Spotlight, widgets, Control Center, and Apple Intelligence.
 - [EntityQuery (4 Variants)](#entityquery-4-variants)
 - [AppEnum](#appenum)
 - [AppShortcutsProvider](#appshortcutsprovider)
-- [Siri Integration](#siri-integration)
-- [Interactive Widget Intents](#interactive-widget-intents)
-- [Control Center Widgets (iOS 18+)](#control-center-widgets-ios-18)
-- [Spotlight and IndexedEntity (iOS 18+)](#spotlight-and-indexedentity-ios-18)
+- [System Surface Integration](#system-surface-integration)
 - [iOS 26 Additions](#ios-26-additions)
 - [Common Mistakes](#common-mistakes)
 - [Review Checklist](#review-checklist)
@@ -28,9 +25,20 @@ Shortcuts, Spotlight, widgets, Control Center, and Apple Intelligence.
 
 ## Triage Workflow
 
-### Step 1: Identify the integration surface
+### Step 1: Choose the action, boundary, and surface
 
-Determine which system feature the intent targets:
+Start from 1-3 valuable actions people want outside the app, not from the app's
+screen hierarchy. For each action:
+
+- define the smallest domain operation and result the system needs;
+- decide whether it can finish inline or must hand off into a specific app
+  destination;
+- keep the domain mutation in a shared service when inline and open-app variants
+  expose the same operation;
+- use one explicit runtime route for app handoff instead of scattering navigation
+  side effects through intent implementations.
+
+Then choose the system feature and protocol that fit that action:
 
 | Surface | Protocol | Since |
 |---|---|---|
@@ -242,6 +250,10 @@ struct AppSettingsQuery: UniqueAppEntityQuery {
 See [references/appintents-advanced.md](references/appintents-advanced.md) for `EntityPropertyQuery` with
 filter/sort support.
 
+When one parameter determines another parameter's valid entity choices, use
+`@IntentParameterDependency` in the query or options provider. The advanced
+reference covers the nil-upstream case and intentional defaults.
+
 ## AppEnum
 
 Define fixed sets of selectable values. `RawValue` must conform to
@@ -305,162 +317,11 @@ struct MyAppShortcuts: AppShortcutsProvider {
 - Call `updateAppShortcutParameters()` when dynamic option values change.
 - Use `negativePhrases` to prevent false Siri activations.
 
-## Siri Integration
+## System Surface Integration
 
-### Donating intents
-
-Donate intents so the system learns user patterns and suggests them in Spotlight:
-
-```swift
-let intent = OrderSoupIntent()
-intent.soup = favoriteSoupEntity
-try await intent.donate()
-```
-
-### Predictable intents
-
-Conform to `PredictableIntent` for Siri prediction of upcoming actions.
-
-## Interactive Widget Intents
-
-Use `AppIntent` with `Button`/`Toggle` in widgets. Use
-`WidgetConfigurationIntent` for configurable widget parameters.
-Treat configuration intents as parameter contracts; put mutations in a separate
-action intent. For sensitive actions such as smart-home control, payments, or
-deletion, use an appropriate `authenticationPolicy` and/or
-`requestConfirmation(...)` before changing state.
-
-```swift
-struct ToggleFavoriteIntent: AppIntent {
-    static var title: LocalizedStringResource = "Toggle Favorite"
-    @Parameter(title: "Item ID") var itemID: String
-
-    func perform() async throws -> some IntentResult {
-        FavoriteStore.shared.toggle(itemID)
-        return .result()
-    }
-}
-
-// In widget view:
-Button(intent: ToggleFavoriteIntent(itemID: entry.id)) {
-    Image(systemName: entry.isFavorite ? "heart.fill" : "heart")
-}
-```
-
-### WidgetConfigurationIntent
-
-```swift
-struct BookWidgetConfig: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Favorite Book"
-    @Parameter(title: "Book", default: "The Swift Programming Language") var bookTitle: String
-}
-
-// Connect to WidgetKit:
-struct MyWidget: Widget {
-    var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: "FavoriteBook", intent: BookWidgetConfig.self, provider: MyTimelineProvider()) { entry in
-            BookWidgetView(entry: entry)
-        }
-    }
-}
-```
-
-## Control Center Widgets (iOS 18+)
-
-Expose controls in Control Center and Lock Screen with `ControlConfigurationIntent`
-and `ControlWidget`. Parameters without defaults must be optional.
-Trigger state changes from a separate `AppIntent` / `SetValueIntent` with
-explicit entity parameters, not from the configuration intent.
-
-```swift
-struct LightControlConfig: ControlConfigurationIntent {
-    static var title: LocalizedStringResource = "Light Control"
-    @Parameter(title: "Light", default: .livingRoom) var light: LightEntity
-}
-
-struct ToggleLightIntent: AppIntent {
-    static var title: LocalizedStringResource = "Toggle Light"
-    static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
-
-    @Parameter(title: "Light") var light: LightEntity
-
-    func perform() async throws -> some IntentResult {
-        try await requestConfirmation(
-            actionName: .toggle,
-            dialog: "Toggle \(light.name)?"
-        )
-        try await LightService.shared.toggle(light.id)
-        return .result()
-    }
-}
-
-struct LightControl: ControlWidget {
-    var body: some ControlWidgetConfiguration {
-        AppIntentControlConfiguration(kind: "LightControl", intent: LightControlConfig.self) { config in
-            ControlWidgetToggle(config.light.name, isOn: config.light.isOn, action: ToggleLightIntent(light: config.light))
-        }
-    }
-}
-```
-
-## Spotlight and IndexedEntity (iOS 18+)
-
-Conform to `IndexedEntity` for Spotlight search. On iOS 26+, use `indexingKey`
-for structured metadata:
-
-```swift
-struct RecipeEntity: IndexedEntity {
-    static let defaultQuery = RecipeQuery()
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Recipe"
-    var id: String  // Stable recipe UUID or slug; do not use recycled row IDs
-
-    @Property(title: "Name", indexingKey: \.title) var name: String  // iOS 26+
-    @ComputedProperty(indexingKey: \.contentDescription)              // iOS 26+
-    var summary: String { "\(name) -- a delicious recipe" }
-
-    var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "\(name)")
-    }
-
-    var attributeSet: CSSearchableItemAttributeSet {
-        let attrs = defaultAttributeSet
-        attrs.keywords = ["recipe"]
-        return attrs
-    }
-}
-
-struct RecipeQuery: EntityQuery {
-    func entities(for identifiers: [RecipeEntity.ID]) async throws -> [RecipeEntity] {
-        identifiers.compactMap { id in
-            RecipeStore.shared.recipe(id: id).map(RecipeEntity.init)
-        }
-    }
-}
-
-struct OpenRecipeIntent: OpenIntent {
-    static var title: LocalizedStringResource = "Open Recipe"
-    @Parameter(title: "Recipe") var target: RecipeEntity
-}
-```
-
-`IndexedEntity` describes metadata; still index instances in a named Spotlight
-index, e.g. `CSSearchableIndex(name: "...").indexAppEntities(entities)`.
-If you customize `attributeSet`, start from `defaultAttributeSet`; returning a
-fresh attribute set replaces display representation and property-derived
-metadata. Prefer `indexingKey` for metadata already exposed on the entity.
-Update and delete changed records in that same named index:
-
-```swift
-let recipeIndex = CSSearchableIndex(name: "Recipes")
-try await recipeIndex.indexAppEntities(changedRecipes)
-try await recipeIndex.deleteAppEntities(
-    identifiedBy: deletedRecipeIDs,
-    ofType: RecipeEntity.self
-)
-```
-
-For large syncs, use `beginBatch()`, `endBatch(withClientState:)`, and
-`fetchLastClientState()` so indexing can resume after a crash or jetsam.
+Read [references/system-surfaces.md](references/system-surfaces.md) when
+implementing Siri donation/prediction, interactive widgets, Control Center
+configuration/action separation, or Spotlight `IndexedEntity` indexing.
 
 ## iOS 26 Additions
 
@@ -568,6 +429,7 @@ system UI budget.
 - [ ] `AppEntity` types expose stable IDs and only system-facing properties
 - [ ] `AppEntity` has `displayRepresentation` and `typeDisplayRepresentation`
 - [ ] `EntityQuery.entities(for:)` omits missing IDs; `suggestedEntities()` implemented
+- [ ] Dependent options use `@IntentParameterDependency`; `defaultResult()` is present only when a genuinely useful default exists
 - [ ] `AppEnum` prefers stable `String` raw values with `caseDisplayRepresentations`
 - [ ] `AppShortcutsProvider` phrases include `\(.applicationName)`; `parameterSummary` defined
 - [ ] `IndexedEntity` properties use key-path `indexingKey` values and entities are indexed
@@ -579,4 +441,5 @@ system UI budget.
 
 ## References
 
+- Read [references/system-surfaces.md](references/system-surfaces.md) for Siri, widgets, Control Center, and Spotlight integration patterns.
 - See [references/appintents-advanced.md](references/appintents-advanced.md) for `@Parameter` variants, EntityPropertyQuery, assistant schemas, focus filters, SiriKit migration, error handling, confirmation flows, authentication, URL-representable types, and Spotlight indexing details.

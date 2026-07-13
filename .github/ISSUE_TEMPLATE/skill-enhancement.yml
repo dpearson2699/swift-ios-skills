@@ -50,7 +50,9 @@ body:
         - healthkit
         - homekit
         - ios-accessibility
+        - ios-ettrace-performance
         - ios-localization
+        - ios-memgraph-analysis
         - ios-networking
         - ios-simulator
         - mapkit

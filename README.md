@@ -10,7 +10,7 @@
 [![License: PolyForm Perimeter](https://img.shields.io/badge/License-PolyForm%20Perimeter%201.0.0-blue.svg)](LICENSE)
 
 
-84 agent skills optimized for **iOS 26+** development with Swift 6.3 and modern Apple frameworks. All code examples, patterns, and guidance target the latest APIs -- Liquid Glass, approachable concurrency, Foundation Models, StoreKit 2, SwiftData, async/await URLSession, and more. No deprecated patterns.
+86 agent skills optimized for **iOS 26+** development with Swift 6.3 and modern Apple frameworks. All code examples, patterns, and guidance target the latest APIs -- Liquid Glass, approachable concurrency, Foundation Models, StoreKit 2, SwiftData, async/await URLSession, and more. No deprecated patterns.
 
 Compatible with [Claude Code](https://claude.ai/code), [OpenAI Codex](https://developers.openai.com/codex), [Cursor](https://cursor.com), [GitHub Copilot](https://github.com/features/copilot), and [40+ other agents](https://skills.sh). Follows the open [Agent Skills](https://agentskills.io) standard.
 
@@ -63,7 +63,7 @@ Install everything for any coding agent:
 npx skills add dpearson2699/swift-ios-skills --all
 ```
 
-Use `--all` when you want the full set of 84 skills installed automatically for any coding agent.
+Use `--all` when you want the full set of 86 skills installed automatically for any coding agent.
 
 Install specific skills directly:
 
@@ -140,14 +140,14 @@ $skill-installer install https://github.com/dpearson2699/swift-ios-skills/tree/m
 
 | Plugin | Skills included |
 |--------|----------------|
-| **all-ios-skills** | All 84 skills |
+| **all-ios-skills** | All 86 skills |
 | **apple-kit-skills** | 39 skills spanning Apple Kit frameworks plus CarPlay |
 | **swiftui-skills** | focus-engine, swiftui-animation, swiftui-gestures, swiftui-layout-components, swiftui-liquid-glass, swiftui-navigation, swiftui-patterns, swiftui-performance, swiftui-uikit-interop, swiftui-webkit |
 | **swift-core-skills** | core-data, swift-api-design-guidelines, swift-architecture, swift-codable, swift-charts, swift-concurrency, swift-formatstyle, swift-language, swift-testing, swiftdata |
 | **ios-app-framework-skills** | activitykit, adattributionkit, alarmkit, app-clips, app-intents, avkit, carplay, mapkit, paperkit, pdfkit, photokit, push-notifications, storekit, tipkit, widgetkit |
 | **ios-data-framework-skills** | cloudkit, contacts-framework, eventkit, financekit, healthkit, musickit, passkit, weatherkit |
 | **ios-ai-ml-skills** | apple-on-device-ai, coreml, natural-language, speech-recognition, vision-framework |
-| **ios-engineering-skills** | app-store-optimization, app-store-review, authentication, background-processing, cryptokit, debugging-instruments, device-integrity, ios-accessibility, ios-localization, ios-networking, swift-security, swiftlint, ios-simulator, metrickit |
+| **ios-engineering-skills** | app-store-optimization, app-store-review, authentication, background-processing, cryptokit, debugging-instruments, device-integrity, ios-accessibility, ios-ettrace-performance, ios-localization, ios-memgraph-analysis, ios-networking, swift-security, swiftlint, ios-simulator, metrickit |
 | **ios-hardware-skills** | accessorysetupkit, core-bluetooth, core-motion, core-nfc, dockkit, pencilkit, realitykit, sensorkit |
 | **ios-platform-skills** | appmigrationkit, audioaccessorykit, browserenginekit, callkit, cryptotokenkit, energykit, homekit, permissionkit, relevancekit, shareplay-activities |
 | **ios-gaming-skills** | gamekit, scenekit, spritekit, tabletopkit |
@@ -239,7 +239,9 @@ $skill-installer install https://github.com/dpearson2699/swift-ios-skills/tree/m
 | [debugging-instruments](skills/debugging-instruments/) | Xcode debugger, Instruments, os_signpost, MetricKit, crash symbolication |
 | [device-integrity](skills/device-integrity/) | DeviceCheck (DCDevice per-device bits), App Attest (DCAppAttestService attestation and assertion flows) |
 | [ios-accessibility](skills/ios-accessibility/) | VoiceOver, Dynamic Type, custom rotors, accessibility focus, assistive-technology support |
+| [ios-ettrace-performance](skills/ios-ettrace-performance/) | ETTrace launch/runtime capture, exact-build dSYM matching, processed flamegraph JSON, comparable verification |
 | [ios-localization](skills/ios-localization/) | String Catalogs, pluralization, FormatStyle, right-to-left layout |
+| [ios-memgraph-analysis](skills/ios-memgraph-analysis/) | Simulator memgraph capture, leak ownership paths, reachable heap growth, raw evidence preservation |
 | [ios-networking](skills/ios-networking/) | URLSession async/await, REST APIs, downloads/uploads, WebSockets, pagination, retry, caching |
 | [swift-security](skills/swift-security/) | Keychain Services, CryptoKit symmetric/asymmetric, biometric authentication, Secure Enclave, certificate trust, credential storage, OWASP compliance · *Based on [ivan-magda/swift-security-skill](https://github.com/ivan-magda/swift-security-skill)* |
 | [ios-simulator](skills/ios-simulator/) | xcrun simctl commands, device lifecycle, push/location/privacy simulation, log streaming, simulator limitations |

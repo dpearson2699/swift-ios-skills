@@ -62,6 +62,20 @@
         "Keeps required dependencies nonoptional and fixes preview composition instead of weakening production types.",
         "Routes advanced cancellation, debounce, clocks, or AsyncSequence details to the `swift-concurrency` skill."
       ]
+    },
+    {
+      "id": 4,
+      "name": "behavior-preserving-view-refactor",
+      "prompt": "Refactor a 360-line SwiftUI editor without changing its layout or behavior. The body contains large sections, a Save button with validation and persistence inline, and a task modifier that mixes loading policy with UI state. Give the refactor contract and verification plan.",
+      "expected_output": "A behavior-preserving structure refactor that extracts meaningful dedicated views, turns non-trivial body closures into thin named methods, keeps business rules and reusable effects in services/models, preserves layout/navigation/accessibility/timing, and verifies both compilation and useful previews.",
+      "files": [],
+      "assertions": [
+        "Preserves layout, navigation, accessibility, side-effect timing, and domain behavior because the request is structure-only.",
+        "Extracts meaningful sections into dedicated View types rather than replacing the screen with many large computed `some View` properties.",
+        "Moves non-trivial Save and task closures to thin named methods so `body` reads as UI.",
+        "Keeps validation, persistence, and reusable loading policy in services or models rather than hiding business logic in view methods.",
+        "Builds the affected target and renders independently useful deterministic previews after refactoring."
+      ]
     }
   ]
 }

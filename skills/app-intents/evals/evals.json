@@ -38,9 +38,52 @@
       "expectations": [
         "Uses `WidgetConfigurationIntent` for configurable widget parameters and `ControlConfigurationIntent` for Control Center or Lock Screen control configuration.",
         "States that a `ControlConfigurationIntent` parameter without a default value must be optional so the system can preview the control before configuration.",
-        "Separates reusable action intents from configuration intents and notes that configuration intents do not need `perform()` unless reused as actions.",
+        "Separates reusable action intents from configuration intents, uses `SetValueIntent` with the system-supplied Boolean `value` for the toggle, and notes that configuration intents do not need `perform()` unless reused as actions.",
         "Mentions that `SnippetIntent.perform()` may run multiple times and should avoid side effects while rendering snippet state.",
         "Keeps detailed WidgetKit layout/timeline architecture outside the App Intents checklist except where it affects protocol choice."
+      ]
+    },
+    {
+      "id": 3,
+      "name": "action-first-inline-handoff-design",
+      "prompt": "We have a grocery app with Browse, Cart, and Checkout screens. Design the first App Intents we should ship. Users often add a previous item again, check the current cart total, and resume a checkout that needs payment confirmation. Explain which actions should finish inline versus open the app, and how to avoid duplicating business logic or navigation side effects.",
+      "expected_output": "An action-first App Intents design that starts from high-value work outside the app, chooses a justified inline confirmation/authentication flow or a specific checkout handoff for payment based on security, required UI, provider constraints, and completion semantics, shares domain services, and centralizes the execution boundary before selecting protocols or system surfaces.",
+      "files": [],
+      "expectations": [
+        "Selects a small set of user actions rather than mapping the Browse, Cart, and Checkout screen hierarchy directly to intents.",
+        "Treats adding a previous item and checking the cart total as candidates for inline completion or results when authentication and confirmation requirements allow.",
+        "Justifies the payment boundary: accepts either supported inline confirmation/authentication when payment can complete safely without required provider UI, or an app handoff to a specific checkout destination when UI or provider constraints require it, and explains completion semantics.",
+        "Keeps cart mutation and lookup logic in shared domain services used by both the app and intent variants.",
+        "Uses one explicit execution boundary and, when handoff is chosen, one runtime route or destination instead of placing ad hoc navigation side effects in each intent.",
+        "Chooses App Intent protocols and system surfaces after defining the action and execution boundary."
+      ]
+    },
+    {
+      "id": 4,
+      "name": "dependent-entity-options",
+      "prompt": "A configurable project widget has Workspace and Project AppEntity parameters. Project choices must be limited to the selected workspace, and the current workspace's recent project may be suggested as a default. Design the EntityQuery behavior, including what happens before Workspace has a value.",
+      "expected_output": "A current App Intents design using IntentParameterDependency in the project query, deliberately handling a missing upstream workspace, resolving identifiers correctly, and implementing defaultResult only for a stable useful recent-project default.",
+      "files": [],
+      "expectations": [
+        "Uses `@IntentParameterDependency` in the project query or options provider to read the workspace parameter.",
+        "Handles the dependency being nil before Workspace is configured instead of force-unwrapping it.",
+        "Scopes suggested project entities to the selected workspace while keeping identifier resolution correct.",
+        "Uses `defaultResult()` only for a genuinely useful stable default and does not choose an arbitrary first result.",
+        "States the iOS 17+ availability of `IntentParameterDependency`."
+      ]
+    },
+    {
+      "id": 5,
+      "name": "fixed-size-entity-array",
+      "prompt": "An iOS 26 widget configuration must let a person select exactly three FavoriteEntity values. A review says every App Intents entity-array size initializer is deprecated, so the parameter should be an unconstrained array and reject the count only in perform(). Correct the design.",
+      "expected_output": "A current App Intents parameter that uses the supported iOS 18+ size overload to express the three-item UI constraint and also validates the count at execution, while distinguishing deprecated iOS 17 overloads from their replacements.",
+      "files": [],
+      "expectations": [
+        "Uses the current `@Parameter(..., size: .init(exactly: 3))` form, or an equivalent `IntentCollectionSize`, for the fixed-size entity array.",
+        "Explains that Apple deprecated older iOS 17 overloads but provides supported iOS 18+ replacements with `size:`.",
+        "Keeps a count check in `perform()` as execution-boundary validation instead of relying only on system UI.",
+        "Does not replace a required fixed cardinality with an unconstrained array.",
+        "Uses a range with `IntentCollectionSize(min:max:)` only when the product requirement is actually bounded rather than exact."
       ]
     }
   ]

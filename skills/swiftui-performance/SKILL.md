@@ -48,7 +48,7 @@ Focus on:
 - Over-animated hierarchies (implicit animations on large trees).
 
 Provide:
-- Likely root causes with code references.
+- Likely root causes with code references, labeled as code-backed hypotheses until a trace confirms them.
 - Suggested fixes and refactors.
 - If needed, a minimal repro or instrumentation suggestion.
 
@@ -76,15 +76,21 @@ Prioritize likely SwiftUI culprits:
 - Large images without downsampling or resizing.
 - Over-animated hierarchies (implicit animations on large trees).
 
-Summarize findings with evidence from traces/logs.
+Summarize findings with evidence from traces/logs. Distinguish trace-backed findings
+from code-backed hypotheses and name the next measurement that would resolve any
+remaining uncertainty.
 
 ## 4. Remediate
 
 Apply targeted fixes:
 - Narrow state scope (`@State`/`@Observable` closer to leaf views).
 - Stabilize identities for `ForEach` and lists.
-- Move heavy work out of `body` (precompute, cache, `@State`).
-- Use `equatable()` or value wrappers for expensive subtrees.
+- Move heavy work out of `body` into model-layer precomputation, an explicit derived
+  value updated when its inputs change, a memoized helper, or background processing.
+  Use `@State` only when the view owns both the value and its update lifecycle; it is
+  not a generic cache for arbitrary computation.
+- Use `equatable()` only when equality is cheaper than recomputing the subtree and
+  the compared inputs have stable value semantics.
 - Downsample images before rendering.
 - Reduce layout complexity or use fixed sizing where possible.
 
@@ -120,12 +126,9 @@ var filtered: [Item] {
 }
 ```
 
-Prefer precompute or cache on change:
-
-```swift
-@State private var filtered: [Item] = []
-// update filtered when inputs change
-```
+Prefer precomputing when the source inputs change. Put the transformation in the
+model or a dedicated helper, or use view-owned derived state only when the view also
+defines the exact input change that refreshes it.
 
 ### Sorting/filtering in `body` or `ForEach`
 
@@ -181,7 +184,8 @@ var body: some View {
 }
 ```
 
-Prefer granular view models or per-item state to reduce update fan-out.
+Prefer narrower derived inputs, smaller observable surfaces, or per-item state to
+reduce update fan-out. Do not introduce view models solely as a performance ritual.
 
 ## 5. Verify
 
@@ -476,6 +480,9 @@ Use computed properties on `@Observable` models to derive state without introduc
 - [ ] Implicit animations use `.animation(_:value:)` for value-bound changes or `.animation(_:body:)` for narrower modifier scope
 - [ ] No synchronous network/file I/O on the main thread
 - [ ] Profiling done on Release build, real device
+- [ ] `@State` is not used as an unspecified cache; every derived value has an explicit owner and refresh trigger
+- [ ] `equatable()` is used only when comparison is cheaper than recomputation and inputs have stable value semantics
+- [ ] Findings distinguish code-backed hypotheses from trace-backed evidence
 - [ ] `@Observable` view models are `@MainActor`-isolated; types crossing concurrency boundaries are `Sendable`
 
 ## References

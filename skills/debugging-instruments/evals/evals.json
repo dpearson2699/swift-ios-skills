@@ -24,6 +24,7 @@
         "Explains that Leaks detects leaked allocations or isolated cycles but not every still-reachable retain cycle.",
         "Recommends Memory Graph Debugger and Allocations generation marks for iOS retain-cycle or growth triage.",
         "Uses exported .memgraph files with leaks for CLI memory-graph inspection instead of presenting --atExit as the default iOS app workflow.",
+        "Routes detailed .memgraph capture, ownership-path proof, and persistent heap-growth analysis to the ios-memgraph-analysis skill.",
         "States that a few hundred milliseconds can feel unresponsive and that Apple tools typically report main-run-loop busy periods over 250 ms.",
         "States that Thread Sanitizer for iOS-family apps runs in Simulator, while Apple documents device support only for 64-bit macOS apps.",
         "Does not expand into MetricKit payload handling beyond a concise handoff to the metrickit skill."

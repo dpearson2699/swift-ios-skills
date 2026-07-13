@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+## v3.8.0
+
+### Repository
+
+- Bump the Tessl plugin and Claude Code marketplace metadata to 3.8.0.
+- Add paired Agent Skills audit coverage and promote focused Tessl scenarios for ETTrace comparison contracts and zero-leak persistent heap growth.
+
+### New skills
+
+- `ios-ettrace-performance` — reproducible ETTrace launch/runtime capture, exact-build dSYM UUID matching, processed flamegraph JSON analysis, inclusive/exclusive hotspot interpretation, and comparable verification runs.
+- `ios-memgraph-analysis` — unambiguous Simulator memgraph capture, leak and retain-cycle ownership evidence, reachable heap-growth investigation, raw Apple-tool artifact preservation, and same-flow verification.
+
+### Skill updates
+
+- Refine `app-intents` triage to start from high-value actions outside the app, decide inline completion versus app handoff, share domain services across variants, and centralize runtime routing before selecting a system surface; move Siri, widget, Control Center, and Spotlight examples into a directly routed reference for progressive disclosure.
+- Sharpen `debugging-instruments` routing so interactive Memory Graph and generic Instruments triage stay in scope while explicit `.memgraph` ownership/growth analysis and ETTrace work dispatch to their focused skills.
+- Distill the remaining portable Build iOS Apps guidance into existing owners: dependent App Intent options and intentional defaults, behavior-preserving SwiftUI refactor boundaries with build/preview proof, and evidence-ranked SwiftUI performance remediation that avoids generic `@State` caching or blanket `equatable()` advice.
+
+### Bundle changes
+
+- Add `ios-ettrace-performance` and `ios-memgraph-analysis` to `ios-engineering-skills` and `all-ios-skills`.
+- Update the complete bundle and public catalog count from 84 to 86 skills.
+
 ## v3.7.0
 
 ### Repository

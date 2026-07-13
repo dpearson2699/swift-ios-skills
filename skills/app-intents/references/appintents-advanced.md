@@ -8,6 +8,7 @@ URL-representable types, and Spotlight indexing.
 ## Contents
 
 - [`@Parameter Initializer Variants`](#parameter-initializer-variants)
+- [Dependent Options and Intentional Defaults](#dependent-options-and-intentional-defaults)
 - [EntityPropertyQuery (Filter and Sort)](#entitypropertyquery-filter-and-sort)
 - [Assistant Schemas (iOS 18+)](#assistant-schemas-ios-18)
 - [Focus Filter Intents](#focus-filter-intents)
@@ -105,20 +106,31 @@ var trail: TrailEntity
 
 ### 7. Array Parameters
 
+Use the current iOS 18+ `size:` overload when the system UI should enforce a
+fixed or bounded number of entity values:
+
 ```swift
-@Parameter(title: "Items")
+@Parameter(title: "Items", size: .init(exactly: 3))
 var items: [ItemEntity]
 ```
 
-Current Apple docs list the old `size:` entity-array initializers as
-deprecated. Prefer a normal array parameter and validate count in `perform()`
-when the action needs a fixed number of values.
+Apple deprecated the original iOS 17 entity-array `size:` overloads, then added
+replacement overloads in iOS 18. Do not treat the argument itself as deprecated.
+Use `IntentCollectionSize(min:max:)` for a range, or omit `size:` only when the
+system UI should allow an unconstrained array.
+
+Validate the count again in `perform()` at the execution boundary:
 
 ```swift
 guard items.count == 3 else {
     throw $items.needsValueError("Choose exactly three items.")
 }
 ```
+
+Apple references:
+
+- [Current entity-array initializer with `size:` (iOS 18+)](https://sosumi.ai/documentation/appintents/intentparameter/init(title:description:default:size:inputconnectionbehavior:)-7i2i4)
+- [`IntentCollectionSize`](https://sosumi.ai/documentation/appintents/intentcollectionsize)
 
 ### 8. File Parameters
 
@@ -183,6 +195,65 @@ func perform() async throws -> some IntentResult {
     return .result()
 }
 ```
+
+## Dependent Options and Intentional Defaults
+
+Use `@IntentParameterDependency` when an upstream intent parameter changes the
+valid options for another parameter. It is available in iOS 17+ for
+`DynamicOptionsProvider` implementations, including the `EntityQuery` family.
+
+```swift
+struct ConfigureProjectWidget: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource = "Project"
+
+    @Parameter(title: "Workspace")
+    var workspace: WorkspaceEntity?
+
+    @Parameter(title: "Project")
+    var project: ProjectEntity?
+}
+
+struct ProjectQuery: EntityQuery {
+    @IntentParameterDependency<ConfigureProjectWidget>(\.$workspace)
+    private var configuration
+
+    func entities(for identifiers: [ProjectEntity.ID]) async throws -> [ProjectEntity] {
+        try await ProjectStore.shared.projects(identifiedBy: identifiers)
+            .map(ProjectEntity.init)
+    }
+
+    func suggestedEntities() async throws -> [ProjectEntity] {
+        guard let workspaceID = configuration?.workspace?.id else {
+            return []
+        }
+        return try await ProjectStore.shared.projects(in: workspaceID)
+            .map(ProjectEntity.init)
+    }
+
+    func defaultResult() async -> ProjectEntity? {
+        guard let workspaceID = configuration?.workspace?.id else {
+            return nil
+        }
+        return try? await ProjectStore.shared.recentProject(in: workspaceID)
+            .map(ProjectEntity.init)
+    }
+}
+```
+
+The dependency can be `nil` while the system is asking for options before the
+upstream value is configured. Handle that state deliberately: return an empty list,
+or return a small unfiltered set only when those choices remain valid. Dependencies
+may read multiple parameters when an option requires more than one parent choice.
+
+`EntityQuery` inherits `defaultResult()` through `DynamicOptionsProvider`. Implement
+it only when the app has a stable, helpful default such as a current workspace or a
+recent project. Do not silently choose the first fetched entity merely to avoid an
+unconfigured parameter.
+
+Apple references:
+
+- [`IntentParameterDependency`](https://sosumi.ai/documentation/appintents/intentparameterdependency)
+- [`DynamicOptionsProvider`](https://sosumi.ai/documentation/appintents/dynamicoptionsprovider)
 
 ## EntityPropertyQuery (Filter and Sort)
 
