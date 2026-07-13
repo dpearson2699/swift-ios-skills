@@ -19,6 +19,7 @@ TOTAL_LINE = re.compile(
     r"Process\s+\S+:\s+(\d+)\s+leaks?\s+for\s+(\d+)\s+total leaked bytes",
     re.IGNORECASE,
 )
+PREVIEW_BYTES = 1024 * 1024
 
 
 class ArtifactError(RuntimeError):
@@ -29,23 +30,46 @@ def analyzable_leaks_status(exit_status: int) -> bool:
     return exit_status in {0, 1}
 
 
+def bounded_text(path: Path, limit: int = PREVIEW_BYTES) -> tuple[str, bool]:
+    """Read a bounded head/tail preview while keeping the raw file authoritative."""
+    size = path.stat().st_size
+    with path.open("rb") as handle:
+        if size <= limit:
+            data = handle.read()
+        else:
+            head_size = limit // 2
+            tail_size = limit - head_size
+            head = handle.read(head_size)
+            handle.seek(size - tail_size)
+            tail = handle.read(tail_size)
+            data = head + b"\n... bounded preview omitted bytes ...\n" + tail
+    return data.decode("utf-8", errors="replace"), size > limit
+
+
 def run_and_preserve(command: list[str], artifact_dir: Path, stem: str) -> dict[str, Any]:
     stdout_path = artifact_dir / f"{stem}.stdout.txt"
     stderr_path = artifact_dir / f"{stem}.stderr.txt"
     existing = [str(path) for path in (stdout_path, stderr_path) if path.exists()]
     if existing:
         raise ArtifactError(f"raw artifact destination already exists: {existing}")
-    with stdout_path.open("x", encoding="utf-8") as stdout_file, stderr_path.open(
-        "x", encoding="utf-8"
-    ) as stderr_file:
-        result = subprocess.run(command, text=True, capture_output=True, check=False)
-        stdout_file.write(result.stdout)
-        stderr_file.write(result.stderr)
+    with stdout_path.open("xb") as stdout_file, stderr_path.open("xb") as stderr_file:
+        result = subprocess.run(
+            command,
+            stdout=stdout_file,
+            stderr=stderr_file,
+            check=False,
+        )
+    stdout_preview, stdout_truncated = bounded_text(stdout_path)
+    stderr_preview, stderr_truncated = bounded_text(stderr_path)
     return {
         "exit_status": result.returncode,
         "stdout": str(stdout_path),
         "stderr": str(stderr_path),
-        "combined": result.stdout + ("\n" if result.stdout and result.stderr else "") + result.stderr,
+        "stdout_preview_truncated": stdout_truncated,
+        "stderr_preview_truncated": stderr_truncated,
+        "combined": stdout_preview
+        + ("\n" if stdout_preview and stderr_preview else "")
+        + stderr_preview,
     }
 
 

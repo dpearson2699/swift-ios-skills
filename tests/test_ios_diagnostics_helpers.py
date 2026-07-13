@@ -354,15 +354,36 @@ class SummarizeMemgraphTests(unittest.TestCase):
     def test_raw_artifacts_are_exclusive_and_never_overwritten(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             artifacts = Path(directory)
-            first = subprocess.CompletedProcess(["leaks"], 0, "FIRST", "")
-            second = subprocess.CompletedProcess(["leaks"], 0, "SECOND", "")
-            with mock.patch.object(SUMMARIZE.subprocess, "run", side_effect=[first, second]) as run:
+
+            def fake_run(command: list[str], **kwargs) -> subprocess.CompletedProcess[bytes]:
+                kwargs["stdout"].write(b"FIRST")
+                return subprocess.CompletedProcess(command, 0)
+
+            with mock.patch.object(SUMMARIZE.subprocess, "run", side_effect=fake_run) as run:
                 SUMMARIZE.run_and_preserve(["leaks"], artifacts, "leaks-list")
                 with self.assertRaises(SUMMARIZE.ArtifactError):
                     SUMMARIZE.run_and_preserve(["leaks"], artifacts, "leaks-list")
 
             self.assertEqual(run.call_count, 1)
+            self.assertNotIn("capture_output", run.call_args.kwargs)
             self.assertEqual((artifacts / "leaks-list.stdout.txt").read_text(), "FIRST")
+
+    def test_large_raw_output_is_streamed_with_a_bounded_preview(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            artifacts = Path(directory)
+            payload = b"A" * (SUMMARIZE.PREVIEW_BYTES + 1024)
+
+            def fake_run(command: list[str], **kwargs) -> subprocess.CompletedProcess[bytes]:
+                kwargs["stdout"].write(payload)
+                return subprocess.CompletedProcess(command, 0)
+
+            with mock.patch.object(SUMMARIZE.subprocess, "run", side_effect=fake_run):
+                result = SUMMARIZE.run_and_preserve(["leaks"], artifacts, "large")
+
+            raw_path = Path(result["stdout"])
+            self.assertEqual(raw_path.stat().st_size, len(payload))
+            self.assertTrue(result["stdout_preview_truncated"])
+            self.assertLess(len(result["combined"].encode("utf-8")), len(payload))
 
     def test_primary_leaks_error_is_tool_failed_with_preserved_raw_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -370,13 +391,15 @@ class SummarizeMemgraphTests(unittest.TestCase):
             artifacts = Path(directory) / "raw"
             graph.write_bytes(b"graph")
             args = self.live_args(graph, artifacts)
-            result = subprocess.CompletedProcess(
-                ["leaks"], 9, "Process App: 1 leak for 16 total leaked bytes", "failed"
-            )
+            def fake_run(command: list[str], **kwargs) -> subprocess.CompletedProcess[bytes]:
+                kwargs["stdout"].write(b"Process App: 1 leak for 16 total leaked bytes")
+                kwargs["stderr"].write(b"failed")
+                return subprocess.CompletedProcess(command, 9)
+
             stdout = io.StringIO()
             with mock.patch.object(SUMMARIZE, "parse_args", return_value=args):
                 with mock.patch.object(SUMMARIZE.shutil, "which", return_value="/usr/bin/leaks"):
-                    with mock.patch.object(SUMMARIZE.subprocess, "run", return_value=result):
+                    with mock.patch.object(SUMMARIZE.subprocess, "run", side_effect=fake_run):
                         with redirect_stdout(stdout), redirect_stderr(io.StringIO()):
                             status = SUMMARIZE.main()
 
@@ -393,13 +416,14 @@ class SummarizeMemgraphTests(unittest.TestCase):
             args = self.live_args(graph, artifacts, group_by_type=True, reference_tree=True)
             commands: list[list[str]] = []
 
-            def fake_run(command: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+            def fake_run(command: list[str], **kwargs) -> subprocess.CompletedProcess[bytes]:
                 commands.append(command)
                 if "--list" in command:
-                    return subprocess.CompletedProcess(
-                        command, 0, "Process App: 0 leaks for 0 total leaked bytes", ""
-                    )
-                return subprocess.CompletedProcess(command, 9, "partial", "optional failed")
+                    kwargs["stdout"].write(b"Process App: 0 leaks for 0 total leaked bytes")
+                    return subprocess.CompletedProcess(command, 0)
+                kwargs["stdout"].write(b"partial")
+                kwargs["stderr"].write(b"optional failed")
+                return subprocess.CompletedProcess(command, 9)
 
             stdout = io.StringIO()
             with mock.patch.object(SUMMARIZE, "parse_args", return_value=args):
