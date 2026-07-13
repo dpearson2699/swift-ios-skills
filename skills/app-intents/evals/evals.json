@@ -57,6 +57,20 @@
         "Uses one explicit execution boundary and, when handoff is chosen, one runtime route or destination instead of placing ad hoc navigation side effects in each intent.",
         "Chooses App Intent protocols and system surfaces after defining the action and execution boundary."
       ]
+    },
+    {
+      "id": 4,
+      "name": "dependent-entity-options",
+      "prompt": "A configurable project widget has Workspace and Project AppEntity parameters. Project choices must be limited to the selected workspace, and the current workspace's recent project may be suggested as a default. Design the EntityQuery behavior, including what happens before Workspace has a value.",
+      "expected_output": "A current App Intents design using IntentParameterDependency in the project query, deliberately handling a missing upstream workspace, resolving identifiers correctly, and implementing defaultResult only for a stable useful recent-project default.",
+      "files": [],
+      "expectations": [
+        "Uses `@IntentParameterDependency` in the project query or options provider to read the workspace parameter.",
+        "Handles the dependency being nil before Workspace is configured instead of force-unwrapping it.",
+        "Scopes suggested project entities to the selected workspace while keeping identifier resolution correct.",
+        "Uses `defaultResult()` only for a genuinely useful stable default and does not choose an arbitrary first result.",
+        "States the iOS 17+ availability of `IntentParameterDependency`."
+      ]
     }
   ]
 }

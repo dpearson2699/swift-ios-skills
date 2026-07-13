@@ -153,6 +153,8 @@ Order members top to bottom: 1) `@Environment` 2) `let` properties 3) `@State` /
 ### Extract Subviews
 
 Break views into focused subviews. Each should have a single responsibility.
+When restructuring an existing view, load [Behavior-Preserving View Refactoring](references/view-refactoring.md)
+for action/side-effect boundaries and build/preview proof.
 
 ```swift
 var body: some View {
@@ -179,23 +181,6 @@ When narrowing dependencies, pass only the values, bindings, and actions the chi
 Reuse is a useful outcome, not a prerequisite for decomposition.
 
 Extensions and `// MARK: -` organize a large file; they do not create view boundaries or replace extraction.
-
-```swift
-var body: some View {
-    List {
-        header
-        filters
-        results
-    }
-}
-
-private var header: some View {
-    VStack(alignment: .leading) {
-        Text(title).font(.title2)
-        Text(subtitle).font(.subheadline)
-    }
-}
-```
 
 ### ViewBuilder Functions
 
@@ -402,6 +387,7 @@ TextField("Search…", text: $query)
 - [ ] Stable `Identifiable` IDs (not array indices)
 - [ ] Extraction uses branching/layout, lifecycle, dependency, preview, or parent-flow signals; small stateless fragments stay computed
 - [ ] Extensions and `// MARK:` only organize files
+- [ ] Structure-only refactors preserve behavior; use thin action/lifecycle methods, keep reusable logic in services/models, then build and render useful previews
 - [ ] Previews cover meaningful loaded/loading/empty/error states with deterministic fixtures and every required environment dependency
 - [ ] No heavy computation in view `body`
 - [ ] Environment used for deeply shared state
@@ -421,3 +407,4 @@ TextField("Search…", text: $query)
 - Deprecated API migration: [references/deprecated-migration.md](references/deprecated-migration.md)
 - Platform and sharing patterns (Transferable, clipboard availability, media, menus, macOS settings): [references/platform-and-sharing.md](references/platform-and-sharing.md)
 - Isolated preview construction (state coverage, fixtures, and environment dependencies): [references/preview-isolation.md](references/preview-isolation.md)
+- Existing-view restructuring (behavior contract, action/side-effect boundaries, and verification): [references/view-refactoring.md](references/view-refactoring.md)

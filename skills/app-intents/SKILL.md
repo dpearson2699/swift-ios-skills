@@ -250,6 +250,10 @@ struct AppSettingsQuery: UniqueAppEntityQuery {
 See [references/appintents-advanced.md](references/appintents-advanced.md) for `EntityPropertyQuery` with
 filter/sort support.
 
+When one parameter determines another parameter's valid entity choices, use
+`@IntentParameterDependency` in the query or options provider. The advanced
+reference covers the nil-upstream case and intentional defaults.
+
 ## AppEnum
 
 Define fixed sets of selectable values. `RawValue` must conform to
@@ -425,6 +429,7 @@ system UI budget.
 - [ ] `AppEntity` types expose stable IDs and only system-facing properties
 - [ ] `AppEntity` has `displayRepresentation` and `typeDisplayRepresentation`
 - [ ] `EntityQuery.entities(for:)` omits missing IDs; `suggestedEntities()` implemented
+- [ ] Dependent options use `@IntentParameterDependency`; `defaultResult()` is present only when a genuinely useful default exists
 - [ ] `AppEnum` prefers stable `String` raw values with `caseDisplayRepresentations`
 - [ ] `AppShortcutsProvider` phrases include `\(.applicationName)`; `parameterSummary` defined
 - [ ] `IndexedEntity` properties use key-path `indexingKey` values and entities are indexed

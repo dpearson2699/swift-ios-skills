@@ -40,6 +40,19 @@
         "Routes NavigationStack routing and deep-link bug design to swiftui-navigation.",
         "Does not collapse sibling boundaries by giving full implementations for MetricKit, navigation routing, or animation tuning."
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "Review this proposed fix for a slow SwiftUI results screen: move every filtered collection into @State, refresh it opportunistically from onAppear, add equatable() to every row, and report the code review conclusions as confirmed performance findings before collecting a trace.",
+      "expected_output": "A correction that rejects @State as an unspecified cache, requires explicit ownership and refresh triggers for derived values, limits equatable() to cases where comparison is cheaper and value-semantic, and labels code-only conclusions as hypotheses until a comparable Instruments capture confirms them.",
+      "files": [],
+      "expectations": [
+        "Rejects using `@State` as a generic cache for arbitrary filtered collections.",
+        "Requires derived values to have a clear owner and explicit refresh trigger tied to their inputs.",
+        "Uses `equatable()` only when equality is cheaper than subtree recomputation and the inputs have stable value semantics.",
+        "Labels code-review conclusions as hypotheses rather than trace-backed findings.",
+        "Requests a comparable Release-on-device Instruments capture before and after the targeted fix."
+      ]
     }
   ]
 }

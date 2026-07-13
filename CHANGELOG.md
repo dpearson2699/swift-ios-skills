@@ -18,6 +18,7 @@
 
 - Refine `app-intents` triage to start from high-value actions outside the app, decide inline completion versus app handoff, share domain services across variants, and centralize runtime routing before selecting a system surface; move Siri, widget, Control Center, and Spotlight examples into a directly routed reference for progressive disclosure.
 - Sharpen `debugging-instruments` routing so interactive Memory Graph and generic Instruments triage stay in scope while explicit `.memgraph` ownership/growth analysis and ETTrace work dispatch to their focused skills.
+- Distill the remaining portable Build iOS Apps guidance into existing owners: dependent App Intent options and intentional defaults, behavior-preserving SwiftUI refactor boundaries with build/preview proof, and evidence-ranked SwiftUI performance remediation that avoids generic `@State` caching or blanket `equatable()` advice.
 
 ### Bundle changes
 
