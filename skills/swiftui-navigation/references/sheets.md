@@ -151,6 +151,10 @@ On iOS/iPadOS, prevent gesture dismissal while unsaved changes exist and expose 
 }
 ```
 
+`interactiveDismissDisabled` covers interactive dismissal. Route toolbar
+buttons and other programmatic close paths through the same validation/save or
+explicit-discard decision before calling `dismiss()`.
+
 On macOS 15+, show a confirmation dialog when the user tries to dismiss a sheet with unsaved changes:
 
 ```swift

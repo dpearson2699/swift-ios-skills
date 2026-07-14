@@ -4,6 +4,9 @@
   "dependencies": {
     "tessl-labs/tessl-skill-eval-scenarios": {
       "version": "0.1.0"
+    },
+    "tessl/skill-optimizer": {
+      "version": "0.16.0"
     }
   }
 }

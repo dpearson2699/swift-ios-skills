@@ -5,12 +5,12 @@ description: "Implement, review, or improve localization and internationalizatio
 
 # iOS Localization & Internationalization
 
-Localize iOS 26+ apps using String Catalogs, modern string types, FormatStyle, and RTL-aware layout. Localization mistakes cause App Store rejections in non-English markets, mistranslated UI, and broken layouts. Ship with correct localization from the start.
+Localize Apple-platform apps with String Catalogs, modern string types,
+locale-aware formatting, and right-to-left layout.
 
 ## Contents
 
-- [String Catalogs (.xcstrings)](#string-catalogs-xcstrings)
-- [String Catalogs (Xcode 15+) and Generated Symbols (Xcode 26+)](#string-catalogs-xcode-15-and-generated-symbols-xcode-26)
+- [String Catalogs and Generated Symbols](#string-catalogs-and-generated-symbols)
 - [String Types -- Decision Guide](#string-types-decision-guide)
 - [String Interpolation in Localized Strings](#string-interpolation-in-localized-strings)
 - [Pluralization](#pluralization)
@@ -20,14 +20,9 @@ Localize iOS 26+ apps using String Catalogs, modern string types, FormatStyle, a
 - [Localization Review Checklist](#review-checklist)
 - [References](#references)
 
-## String Catalogs (.xcstrings)
+## String Catalogs and Generated Symbols
 
 String Catalogs are the recommended Xcode 15+ workflow for new localization work. They keep localizable strings, pluralization rules, and device variations together in an Xcode-managed JSON file with a visual editor. Legacy `.strings` and `.stringsdict` files can coexist during migration, but new Swift and SwiftUI code should default to String Catalogs.
-
-**Why String Catalogs exist:**
-- `.strings` files required manual key management and fell out of sync
-- `.stringsdict` required complex XML for plurals
-- String Catalogs auto-extract strings from code, track translation state, and support plurals natively
 
 **How automatic extraction works:**
 
@@ -52,9 +47,8 @@ Xcode adds discovered keys to the String Catalog automatically. Mark translation
 
 For detailed String Catalog workflows, migration, and testing strategies, see [references/string-catalogs.md](references/string-catalogs.md).
 
-## String Catalogs (Xcode 15+) and Generated Symbols (Xcode 26+)
-
-For generated-symbol or migration answers, start by stating: "String Catalogs are the recommended Xcode 15+ localization workflow. Xcode 26 generated symbols are a separate typed-access layer on top of String Catalogs." Then explain generated symbols, plurals, or migration details. Do not describe catalogs themselves as requiring Xcode 26 or iOS 17.
+Generated symbols are an Xcode 26 typed-access layer on top of String Catalogs;
+they do not change the catalog's Xcode 15 availability.
 
 **Enable:** Build Settings > Localization > Generate String Catalog Symbols → `Yes` (on by default in new Xcode 26 projects). Requires catalog format version `1.1`.
 
@@ -224,14 +218,9 @@ String Catalogs support device-specific text (iPhone vs iPad vs Mac):
 
 ### Grammar Agreement (iOS 15+)
 
-Use `^[...]` inflection syntax for automatic grammatical agreement:
-
-```swift
-// Automatically adjusts for gender/number in supported languages
-Text("^[\(count) \("photo")](inflect: true) added")
-// English: "1 photo added" / "3 photos added"
-// Spanish: "1 foto agregada" / "3 fotos agregadas"
-```
+Use Foundation's automatic grammar agreement markup when nearby words must
+inflect for a value's number or gender. Preserve the complete inflecting phrase
+for translators; see [Automatic Grammar Agreement](https://sosumi.ai/documentation/foundation/automatic-grammar-agreement).
 
 ## FormatStyle -- Locale-Aware Formatting
 

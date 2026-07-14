@@ -7,11 +7,12 @@ description: "Integrate Apple Music playback, catalog search, and Now Playing me
 
 Search the Apple Music catalog, manage playback with `ApplicationMusicPlayer`,
 check subscriptions, and publish Now Playing metadata via `MPNowPlayingInfoCenter`
-and `MPRemoteCommandCenter`. Targets Swift 6.3 / iOS 26+.
+and `MPRemoteCommandCenter`.
 
 ## Contents
 
 - [Setup](#setup)
+- [Workflow](#workflow)
 - [Authorization](#authorization)
 - [Catalog Search](#catalog-search)
 - [Subscription Checks](#subscription-checks)
@@ -22,6 +23,14 @@ and `MPRemoteCommandCenter`. Targets Swift 6.3 / iOS 26+.
 - [Common Mistakes](#common-mistakes)
 - [Review Checklist](#review-checklist)
 - [References](#references)
+
+## Workflow
+
+1. Verify the MusicKit App Service, bundle identifier, purpose string, and background-audio mode before debugging code.
+2. Request authorization, then model every non-authorized state explicitly.
+3. Search or load catalog content and check `MusicSubscription.current` before queueing playback.
+4. Choose `ApplicationMusicPlayer` for app-scoped playback; wire Now Playing and remote commands only when the app owns those surfaces.
+5. Test authorized, denied, unsubscribed, offline, queue failure, interruption, and track-change states. Fix the smallest failing layer, restore the fixture, and rerun the same state matrix.
 
 ## Setup
 
@@ -302,89 +311,13 @@ func enableScrubbing() {
 
 ## Common Mistakes
 
-### DON'T: Skip MusicKit App Service setup or usage description
-
-Without the MusicKit App Service on the app's explicit bundle ID, automatic
-developer token generation for Apple Music API requests is not configured.
-Without `NSAppleMusicUsageDescription`, the app cannot access the user's media
-library on Apple platforms that require the purpose string.
-
-```swift
-// WRONG: MusicKit App Service not enabled for this bundle ID
-
-// CORRECT: Enable MusicKit App Service in the developer portal,
-// set the matching bundle ID, then add NSAppleMusicUsageDescription.
-let status = await MusicAuthorization.request()
-```
-
-### DON'T: Forget to check subscription before playback
-
-Attempting to play catalog content without a subscription silently fails or throws.
-
-```swift
-// WRONG
-func play(_ song: Song) async throws {
-    player.queue = [song]
-    try await player.play() // Fails if no subscription
-}
-
-// CORRECT
-func play(_ song: Song) async throws {
-    let sub = try await MusicSubscription.current
-    guard sub.canPlayCatalogContent else {
-        showSubscriptionOffer()
-        return
-    }
-    player.queue = [song]
-    try await player.play()
-}
-```
-
-### DON'T: Use SystemMusicPlayer when you mean ApplicationMusicPlayer
-
-`SystemMusicPlayer` controls the global Music app queue. Changes affect the user's
-Music app state. Use `ApplicationMusicPlayer` for app-scoped playback.
-
-```swift
-// WRONG: Modifies the user's Music app queue
-let player = SystemMusicPlayer.shared
-
-// CORRECT: App-scoped playback
-let player = ApplicationMusicPlayer.shared
-```
-
-### DON'T: Forget to update Now Playing info when track changes
-
-Stale metadata on the Lock Screen confuses users. Update Now Playing info
-every time the current track changes.
-
-```swift
-// WRONG: Set once and forget
-updateNowPlaying(title: firstSong.title, ...)
-
-// CORRECT: Update on every track change
-func onTrackChanged(_ song: Song) {
-    updateNowPlaying(
-        title: song.title,
-        artist: song.artistName,
-        duration: song.duration ?? 0,
-        elapsed: 0
-    )
-}
-```
-
-### DON'T: Register remote commands without handling them
-
-Registering a command but returning `.commandFailed` breaks Lock Screen controls.
-Disable commands you do not support instead.
-
-```swift
-// WRONG
-center.skipForwardCommand.addTarget { _ in .commandFailed }
-
-// CORRECT
-center.skipForwardCommand.isEnabled = false
-```
+| Mistake | Fix |
+|---|---|
+| Debugging authorization before configuring the App Service and purpose string | Verify service, bundle ID, and `NSAppleMusicUsageDescription` first. |
+| Queueing catalog content without a subscription gate | Check `canPlayCatalogContent`; offer subscription only when `canBecomeSubscriber`. |
+| Using `SystemMusicPlayer` for app-owned playback | Use `ApplicationMusicPlayer`; the system player changes the Music app's global queue. |
+| Publishing Now Playing metadata once | Refresh it on track, duration, rate, and elapsed-time changes. |
+| Registering unsupported remote commands | Disable them; supported handlers must perform the action and return `.success`. |
 
 ## Review Checklist
 

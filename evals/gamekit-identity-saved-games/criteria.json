@@ -33,8 +33,8 @@
       "max_score": 15
     },
     {
-      "name": "No unrelated overreach",
-      "description": "Keeps the output to GameKit client/server guidance and does not create an app project, backend service, or unrelated storage architecture.",
+      "name": "Public key verification",
+      "description": "Has the server fetch the Apple-provided public key and verify the signature over the covered fields instead of trusting client-supplied identity data directly.",
       "max_score": 10
     }
   ]

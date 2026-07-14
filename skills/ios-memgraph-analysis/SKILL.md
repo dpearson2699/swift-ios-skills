@@ -183,14 +183,13 @@ not proof.
 
 ## Common Mistakes
 
-- Calling every retained object a leak.
 - Declaring the app leak-free because `leaks` returned zero once.
 - Selecting the first PID or Simulator from an ambiguous list.
 - Enabling Malloc Stack Logging in only one side of a comparison.
 - Treating a parser's best-effort type column as an API guarantee.
 - Pasting enormous reference trees into a report without finding an app edge.
 - Fixing every closure with `[weak self]` without reasoning about lifetime.
-- Claiming success from graph size, RSS, or total-count changes alone.
+- Claiming success from graph size, RSS, or total-count changes without proving the target lifetime and ownership path.
 
 ## Review Checklist
 

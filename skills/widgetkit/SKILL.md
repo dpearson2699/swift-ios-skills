@@ -349,10 +349,7 @@ On watchOS, contextual relevance uses
 - **Use `Canvas` for dense visualizations** like sparklines or mini bar charts.
   The lack of per-element accessibility is acceptable since the entire widget
   surface is a single tap target.
-- **Match timeline refresh to data granularity.** Apple budgets
-  [40–70 refreshes per day](https://sosumi.ai/documentation/widgetkit/keeping-a-widget-up-to-date)
-  with entries at least 5 minutes apart. Use `Text(timerInterval:countsDown:)`
-  for live countdowns instead of burning timeline entries.
+- **Match timeline refresh to data granularity.** The budget is dynamic and opportunistic; schedule useful future entries, avoid unnecessary reloads, and use `Text(timerInterval:countsDown:)` for live countdowns. Load the advanced reference for current budget guidance.
 
 See [references/widgetkit-advanced.md](references/widgetkit-advanced.md) for
 code examples and detailed guidance on each pattern.
@@ -413,24 +410,21 @@ opening the app, CarPlay integration.
    synchronously with sample data. Use `getTimeline` or `timeline(for:in:)` for
    async work.
 
-5. **Letting WidgetKit absorb sibling-skill work.** Keep full Live Activity
-   lifecycle in `activitykit` and full App Intent modeling in `app-intents`.
-
-6. **Treating WidgetKit push payloads as state.** Widget and control pushes are
+5. **Treating WidgetKit push payloads as state.** Widget and control pushes are
    reload signals. Persist state in shared storage or refetch it in the provider.
 
-7. **Registering widget pushes through User Notifications.** Widget push tokens
+6. **Registering widget pushes through User Notifications.** Widget push tokens
    come from WidgetKit handlers, not `UNUserNotificationCenter`.
 
-8. **Putting heavy logic in the widget view.** Widget views are rendered in a
+7. **Putting heavy logic in the widget view.** Widget views are rendered in a
    size-limited process. Pre-compute data in the timeline provider and pass
    display-ready values through the entry.
 
-9. **Ignoring accessory rendering modes.** Lock Screen widgets render in
+8. **Ignoring accessory rendering modes.** Lock Screen widgets render in
    `.vibrant` or `.accented` mode, not `.fullColor`. Test with
    `@Environment(\.widgetRenderingMode)` and avoid relying on color alone.
 
-10. **Not testing on device.** StandBy, CarPlay, and accessory rendering differ
+9. **Not testing on device.** StandBy, CarPlay, and accessory rendering differ
     significantly from Simulator. Always verify on physical hardware.
 
 ## Review Checklist

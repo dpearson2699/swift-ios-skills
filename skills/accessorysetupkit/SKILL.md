@@ -7,8 +7,7 @@ description: "Discover and configure Bluetooth and Wi-Fi accessories using Acces
 
 Privacy-preserving accessory discovery and setup for Bluetooth and Wi-Fi
 devices. Replaces broad Bluetooth/Wi-Fi permission prompts with a
-system-provided picker that grants per-accessory access with a single tap.
-Available iOS 18+ / Swift 6.3.
+system-provided picker that grants per-accessory access with a single tap (iOS 18+).
 
 After setup, apps continue using CoreBluetooth and NetworkExtension for
 communication. AccessorySetupKit handles only the discovery and authorization
@@ -358,80 +357,13 @@ Migration rules:
 
 ## Common Mistakes
 
-### DON'T: Omit Info.plist keys for Bluetooth discovery
-
-The app crashes if it uses identifiers, names, or services in descriptors that
-are not declared in Info.plist.
-
-```swift
-// WRONG — service UUID not in NSAccessorySetupBluetoothServices
-var descriptor = ASDiscoveryDescriptor()
-descriptor.bluetoothServiceUUID = CBUUID(string: "UNDECLARED-UUID")
-session.showPicker(for: [item]) { _ in }  // Crash
-
-// CORRECT — declare all UUIDs in Info.plist first
-// Info.plist: NSAccessorySetupBluetoothServices = ["ABCD1234-..."]
-var descriptor = ASDiscoveryDescriptor()
-descriptor.bluetoothServiceUUID = CBUUID(string: "ABCD1234-...")
-```
-
-### DON'T: Set both ssid and ssidPrefix
-
-```swift
-// WRONG — crashes at runtime
-var descriptor = ASDiscoveryDescriptor()
-descriptor.ssid = "MyNetwork"
-descriptor.ssidPrefix = "My"  // Cannot set both
-
-// CORRECT — use one or the other
-var descriptor = ASDiscoveryDescriptor()
-descriptor.ssid = "MyNetwork"
-```
-
-### DON'T: Initialize CBCentralManager before migration
-
-```swift
-// WRONG — migration fails, picker does not appear
-let central = CBCentralManager(delegate: self, queue: nil)
-session.showPicker(for: [migrationItem]) { error in
-    // error is non-nil
-}
-
-// CORRECT — wait for .migrationComplete before using CoreBluetooth
-session.activate(on: .main) { event in
-    if event.eventType == .migrationComplete {
-        let central = CBCentralManager(delegate: self, queue: nil)
-    }
-}
-```
-
-### DON'T: Show the picker without user intent
-
-```swift
-// WRONG — picker appears unexpectedly on app launch
-override func viewDidLoad() {
-    super.viewDidLoad()
-    session.showPicker(for: items) { _ in }
-}
-
-// CORRECT — bind picker to a user action
-@IBAction func addAccessoryTapped(_ sender: UIButton) {
-    session.showPicker(for: items) { _ in }
-}
-```
-
-### DON'T: Reuse an invalidated session
-
-```swift
-// WRONG — session is dead after invalidation
-session.showPicker(for: items) { _ in }  // No effect
-
-// CORRECT — create a new session
-let newSession = ASAccessorySession()
-newSession.activate(on: .main) { event in
-    // Handle events
-}
-```
+| Mistake | Fix |
+|---|---|
+| Descriptor identifiers are absent from Info.plist | Declare every Bluetooth service, name, and company identifier before presenting the picker. |
+| Both `ssid` and `ssidPrefix` are set | Choose exactly one matching strategy. |
+| CoreBluetooth starts before migration completes | Wait for `.migrationComplete`, then create `CBCentralManager`. |
+| Picker appears without explicit user intent | Present it only from a user action. |
+| An invalidated session is reused | Create, activate, and retain a new `ASAccessorySession`. |
 
 ## Review Checklist
 

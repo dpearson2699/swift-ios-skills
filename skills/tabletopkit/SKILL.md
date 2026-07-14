@@ -7,9 +7,7 @@ description: "Builds multiplayer spatial board games using TabletopKit on vision
 
 Create multiplayer spatial board games on a virtual table surface using
 TabletopKit. Handles game layout, equipment interaction, player seating, turn
-management, state synchronization, and RealityKit rendering. TabletopKit is
-visionOS-only. Core APIs are visionOS 2.0+; availability-sensitive APIs are
-called out below. Targets Swift 6.3.
+management, state synchronization, and RealityKit rendering. It is visionOS-only; the availability matrix below owns version details.
 
 ## Contents
 
@@ -447,8 +445,6 @@ network coordinators and arbiter role management.
 
 ## Common Mistakes
 
-- **Forgetting platform restriction.** TabletopKit is visionOS-only. Do not
-  conditionally compile for iOS/macOS; the framework does not exist there.
 - **Skipping seat claim.** Players must call `claimAnySeat()` or `claimSeat(_:)`
   before interacting with equipment. Without a seat, actions are rejected.
 - **Mutating state outside actions.** All state changes must go through
@@ -473,8 +469,7 @@ network coordinators and arbiter role management.
 
 ## Review Checklist
 
-- [ ] `import TabletopKit` present; answer explicitly states TabletopKit is visionOS-only and target is visionOS 2.0+
-- [ ] Availability checked for visionOS 2.2+ `TabletopInteraction.Configuration` and visionOS 26.0+ custom action/custom state APIs
+- [ ] Platform/availability matrix applied: visionOS-only core 2.0+, interaction configuration 2.2+, and named custom action/state APIs 26.0+
 - [ ] `TableSetup` created with a `Tabletop`/`EntityTabletop` conforming type
 - [ ] All equipment conforms to `Equipment` or `EntityEquipment` with correct state type
 - [ ] Seats added and `claimAnySeat()` / `claimSeat(_:)` called at game start

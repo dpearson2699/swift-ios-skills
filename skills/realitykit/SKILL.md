@@ -32,8 +32,7 @@ understanding, and gesture-based interactions. Targets Swift 6.3 / iOS 26+.
 
 ### Device Requirements
 
-AR features require devices with an A9 chip or later. Always check
-`ARWorldTrackingConfiguration.isSupported` before presenting AR UI.
+Check the exact AR configuration's `isSupported` value before presenting AR UI.
 
 ```swift
 import ARKit
@@ -278,23 +277,9 @@ virtual entity picking, not ARKit surface detection.
 
 ### Per-Frame Updates
 
-Subscribe to scene update events for continuous processing:
-
-```swift
-RealityView { content in
-    let entity = ModelEntity(
-        mesh: .generateSphere(radius: 0.05),
-        materials: [SimpleMaterial(color: .yellow, isMetallic: false)]
-    )
-    entity.position = [0, 0, -0.5]
-    content.add(entity)
-
-    _ = content.subscribe(to: SceneEvents.Update.self) { event in
-        let time = Float(event.deltaTime)
-        entity.position.y += sin(Float(Date().timeIntervalSince1970)) * time * 0.1
-    }
-}
-```
+Subscribe to `SceneEvents.Update` for continuous scene work rather than driving
+RealityKit with a SwiftUI timer. Keep the subscription alive and use
+`event.deltaTime`; see [Entity Animations](references/realitykit-patterns.md#entity-animations).
 
 ### Platform Boundaries
 
@@ -320,36 +305,8 @@ explicit migration to RealityKit, not a mixed scene graph.
 
 ### DON'T: Skip AR capability checks
 
-Not all devices support AR. Showing a black camera view with no feedback
-confuses users.
-
-```swift
-// WRONG -- no device check
-struct MyARView: View {
-    var body: some View {
-        RealityView { content in
-            // Fails silently on unsupported devices
-        }
-    }
-}
-
-// CORRECT -- check support and show fallback
-struct MyARView: View {
-    var body: some View {
-        if ARWorldTrackingConfiguration.isSupported {
-            RealityView { content in
-                // AR content
-            }
-        } else {
-            ContentUnavailableView(
-                "AR Not Supported",
-                systemImage: "arkit",
-                description: Text("This device does not support AR.")
-            )
-        }
-    }
-}
-```
+Use the configuration-specific support check from Setup before presenting AR.
+Show non-AR content or an explicit unavailable state when it fails.
 
 ### DON'T: Load heavy models synchronously
 

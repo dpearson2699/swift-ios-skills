@@ -1,0 +1,47 @@
+{
+  "skill_name": "photokit",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Review a SwiftUI photo-import grid that requests full photo-library access before presenting a picker, loads each selected 48 MP image directly into UIImage, and does the work inline from the view update. Give a privacy-preserving, memory-safe correction plan.",
+      "expected_output": "A focused PhotoKit review that uses the system picker without unnecessary library permission, loads selected items asynchronously, downsamples before display, and distinguishes picker access from custom-library access.",
+      "files": [],
+      "expectations": [
+        "Recommends PhotosPicker or PHPickerViewController for user-selected media instead of UIImagePickerController.",
+        "States that the system picker does not require photo-library permission merely to browse and return selected items.",
+        "Uses loadTransferable(type:) asynchronously and handles nil or thrown decode failures.",
+        "Downsamples large image data with CGImageSource before creating display-sized images.",
+        "Requests read-write access only for a custom library browser or other full-library reads and handles limited access.",
+        "Mentions the appropriate photo-library usage-description key only when explicit access is actually needed."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Review an AVCaptureSession controller that calls beginConfiguration() on the main actor, can return before commitConfiguration(), starts the session in Task.detached, and stops it from another queue when the SwiftUI view disappears. Provide a corrected lifecycle design.",
+      "expected_output": "A camera-session correction that serializes configuration and start/stop operations on one non-main executor, balances configuration transactions, checks addability, and keeps the representable limited to preview display.",
+      "files": [],
+      "expectations": [
+        "Requires one dedicated serial executor or queue to own configuration, startRunning(), and stopRunning().",
+        "Rejects mixing main-actor configuration with detached or unrelated-queue start and stop calls.",
+        "Balances beginConfiguration() with commitConfiguration(), including early failures, using defer or an equivalent guaranteed transaction boundary.",
+        "Checks canAddInput and canAddOutput before mutating the session graph.",
+        "Requests camera permission before entering the configuration transaction.",
+        "Keeps AVCaptureSession ownership outside UIViewRepresentable and limits the representable to the preview layer."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "An iOS media feature needs user-selected photos, a custom all-assets browser, camera capture, remote thumbnail caching, and video playback. Explain which PhotoKit guidance applies directly and where adjacent framework guidance should take over.",
+      "expected_output": "A boundary-aware media plan that owns PhotosPicker, explicit library access, camera capture, and display-sized image handling while routing playback and production remote-image caching to the appropriate adjacent guidance.",
+      "files": [],
+      "expectations": [
+        "Keeps PhotosPicker or PHPickerViewController selection and PhotosPickerItem loading in PhotoKit scope.",
+        "Keeps PHPhotoLibrary authorization and limited-library handling in PhotoKit scope for the custom asset browser.",
+        "Keeps AVCaptureSession camera configuration and capture lifecycle in PhotoKit's camera guidance.",
+        "Routes detailed AVPlayer or playback-session behavior to AVKit or AVFoundation playback guidance.",
+        "Routes production remote-image cache architecture to dedicated image-loading or networking guidance while retaining downsampling advice.",
+        "Does not request full photo-library access for the picker-only path."
+      ]
+    }
+  ]
+}

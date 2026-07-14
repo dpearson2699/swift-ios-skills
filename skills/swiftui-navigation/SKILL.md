@@ -156,6 +156,8 @@ Prefer `.sheet(item:)` over `.sheet(isPresented:)` when state represents a selec
 Fine-tuning: `.fitted(horizontal:vertical:)` constrains fitting axes; `.sticky(horizontal:vertical:)` grows but does not shrink in specified dimensions.
 
 **Dismissal protection:** On iOS/iPadOS, use `.interactiveDismissDisabled(hasUnsavedChanges)` and provide explicit Save/Discard actions inside the sheet. On macOS 15+, use `.dismissalConfirmationDialog("Discard?", shouldPresent: hasUnsavedChanges)` for window dismissal confirmation.
+Route every programmatic close through the same save/validate/discard gate;
+`interactiveDismissDisabled` guards interactive dismissal only.
 
 **Enum-driven sheet routing:** Define a `SheetDestination` enum that is `Identifiable`, store it on the router, and map it with a shared view modifier. This lets any child view present sheets without prop-drilling. See [references/sheets.md](references/sheets.md) for the full centralized sheet routing pattern.
 
@@ -197,6 +199,11 @@ struct MainTabView: View {
 See [references/tabview.md](references/tabview.md) for full TabView patterns including custom bindings, dynamic tabs, and sidebar customization.
 
 ## Deep Links
+
+Use parse → validate → commit. Parse into a typed route without mutating
+navigation; validate scheme/host/path, identifier shape, authorization, and
+destination existence; then update tab/path atomically. Invalid links must leave
+the current navigation unchanged.
 
 ### Universal Links
 

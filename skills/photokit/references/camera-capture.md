@@ -1,6 +1,18 @@
 # Camera Capture
 
-Complete patterns for AVCaptureSession setup, photo capture, video recording, and camera features in SwiftUI. All patterns use a dedicated `@Observable` model that owns the session; the SwiftUI view only displays the preview and triggers actions.
+Patterns for AVCaptureSession setup, photo capture, video recording, and camera features in SwiftUI. Treat all snippets below as operations on one dedicated serial capture executor. Configuration, `startRunning()`, and `stopRunning()` must never race or be split between `@MainActor` and unstructured detached tasks. UI state is published on the main actor only after the capture operation completes.
+
+Every configuration transaction must balance even on early exit:
+
+```swift
+session.beginConfiguration()
+defer { session.commitConfiguration() }
+
+guard session.canAddInput(input) else { throw CameraError.cannotAddInput }
+session.addInput(input)
+```
+
+Use an actor backed by a serial executor or a dedicated serial dispatch queue for the complete controller. Do not copy the older `Task.detached` fragments in isolation; migrate their bodies onto that controller's executor and update observable state after completion.
 
 ---
 

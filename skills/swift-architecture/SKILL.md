@@ -1,499 +1,134 @@
 ---
 name: swift-architecture
-description: "Select, implement, or migrate between app architecture patterns for Apple platform apps. Use when choosing between MV (Model-View with @Observable), MVVM, MVI, TCA (The Composable Architecture), Clean Architecture, VIPER, or Coordinator patterns; when evaluating architecture fit for a feature's complexity; when migrating from one pattern to another; or when reviewing whether an app's current architecture is appropriate. Scoped to Apple-platform patterns using Swift 6.3, SwiftUI, and UIKit."
+description: "Selects, reviews, and migrates Apple-platform app architectures across MV with Observation, MVVM, MVI, TCA, Clean Architecture, Coordinator, and legacy VIPER. Use when choosing module and dependency boundaries, escalating a feature beyond simple SwiftUI MV, planning incremental architecture migration, or auditing state ownership and test seams."
 ---
 
 # Swift Architecture
 
-Select and implement the right architecture pattern for Apple platform apps built with Swift 6.3 and SwiftUI or UIKit.
+Choose the smallest architecture that makes state ownership, dependencies, side effects, and tests explicit. Default new SwiftUI features to MV; escalate only for observed complexity.
 
 ## Contents
 
 - [Scope Boundary](#scope-boundary)
-- [Architecture Selection](#architecture-selection)
-- [MV Pattern (Model-View with `@Observable`)](#mv-pattern)
-- [MVVM](#mvvm)
-- [MVI (Model-View-Intent)](#mvi)
-- [TCA (The Composable Architecture)](#tca)
-- [Clean Architecture](#clean-architecture)
-- [Coordinator Pattern](#coordinator-pattern)
-- [VIPER](#viper)
-- [Migration Between Patterns](#migration-between-patterns)
+- [Decision Workflow](#decision-workflow)
+- [Pattern Selection](#pattern-selection)
+- [MV Default](#mv-default)
+- [Escalation Signals](#escalation-signals)
+- [Migration](#migration)
 - [Common Mistakes](#common-mistakes)
 - [Review Checklist](#review-checklist)
 - [References](#references)
 
 ## Scope Boundary
 
-This skill owns architecture-level decisions: pattern selection, module
-boundaries, dependency direction, migration/escalation strategy, and structural
-test strategy. It does not own SwiftUI state mechanics; route `@State`,
-`@Bindable`, `@Environment`, edit-sheet/local state, bindings, view composition,
-and `@Observable` MV implementation mechanics to `swiftui-patterns`. Use
-`swiftui-navigation` for `NavigationStack`, `NavigationSplitView`,
-`NavigationPath`, route models, sheets, tabs, and deep-link URL handling;
-`swift-concurrency` for `@MainActor`, default MainActor isolation, `Sendable`,
-strict-concurrency diagnostics, and data-race diagnostics; and `swift-testing`
-for `@Test`, `#expect`, `#require`, fixtures, parameterized tests, mocks, stubs,
-and suite organization.
+This skill owns pattern selection, module boundaries, dependency direction, migration strategy, and architecture-level test seams. Route SwiftUI property-wrapper wiring and view composition to `swiftui-patterns`, navigation APIs and route models to `swiftui-navigation`, isolation diagnostics to `swift-concurrency`, and test syntax/fixtures to `swift-testing`.
 
-## Architecture Selection
+## Decision Workflow
 
-| Pattern | Best For | Complexity | Testability |
-|---------|----------|-----------|-------------|
-| **MV** | Small-to-medium SwiftUI apps, rapid iteration | Low | Moderate |
-| **MVVM** | Medium apps, teams familiar with reactive patterns | Medium | High |
-| **MVI** | Complex state machines, predictable state flow | Medium-High | High |
-| **TCA** | Large apps needing composable features, strong testing | High | Very High |
-| **Clean Architecture** | Enterprise apps, strict separation of concerns | High | Very High |
-| **Coordinator** | Apps with complex navigation flows (UIKit or hybrid) | Medium | High |
-| **VIPER** | Legacy UIKit modules already using VIPER boundaries | Very High | High |
+1. Record the feature's state owner, inputs, outputs, dependencies, side effects, navigation handoffs, and current tests.
+2. Identify the concrete pressure: complex state machine, shared derived state, dependency control, feature composition, team ownership, or UIKit navigation.
+3. Select the smallest pattern that addresses that pressure; write down what it adds and what remains unchanged.
+4. Implement one vertical slice with injected dependencies and observable state transitions.
+5. Run existing behavior tests plus state-transition and dependency-failure tests. If behavior changes, restore the fixture, fix the smallest boundary, and rerun before migrating another slice.
 
-**Default recommendation for new SwiftUI apps:** Start with MV (Model-View
-with `@Observable`). Escalate to MVVM or TCA only when the feature's complexity
-demands it.
+## Pattern Selection
 
-Boundary-split answers should use one `swift-architecture` bucket for
-pattern/module/dependency/migration/test-strategy decisions. Do not add a
-separate architecture-owned "SwiftUI state ownership" bucket; property-wrapper,
-local binding, navigation, concurrency-diagnostic, fixture, and parameterized
-test mechanics are sibling-skill handoffs.
+| Pattern | Choose when | Main cost |
+|---|---|---|
+| MV | SwiftUI feature has straightforward state and orchestration | Logic can drift into large views without decomposition |
+| MVVM | Presentation logic needs an independently testable adapter | Extra layer can become a forwarding shell |
+| MVI | A feature is best modeled as explicit state + intents + reducer/effects | Boilerplate and centralized transition design |
+| TCA | Many composable features need deterministic effects, dependencies, and testing | Framework learning and architectural commitment |
+| Clean Architecture | Large product needs strict dependency direction across domain/data/UI | Protocol and mapping overhead |
+| Coordinator | UIKit or hybrid navigation needs a separate flow owner | Another lifecycle and routing owner |
+| VIPER | Maintaining an existing UIKit module with established VIPER boundaries | Very high ceremony; poor default for new SwiftUI work |
 
-### Decision Framework
+Use Coordinator alongside another state pattern when navigation complexity is the pressure; it is not a replacement for domain/state architecture.
 
-1. **Is the feature a simple CRUD screen?** → MV pattern
-2. **Does the screen have complex business logic separate from the view?** → MVVM
-3. **Do you need deterministic state transitions and side-effect management?** → MVI or TCA
-4. **Is the app large with many independent feature modules?** → TCA or Clean Architecture
-5. **Is navigation complex with deep linking and conditional flows?** → Add Coordinator pattern
+## MV Default
 
-## MV Pattern
-
-The simplest SwiftUI architecture. The view observes `@Observable` models
-directly. No intermediate view model layer.
+Keep views as state expressions and put business operations in observable models and injected services:
 
 ```swift
-import Observation
-import SwiftUI
-
 @MainActor
 @Observable
 final class TripStore {
+    private let client: TripClient
     var trips: [Trip] = []
-    var isLoading = false
     var error: Error?
 
-    private let service: TripService
-
-    init(service: TripService) {
-        self.service = service
-    }
-
-    func loadTrips() async {
-        isLoading = true
-        defer { isLoading = false }
-        do {
-            trips = try await service.fetchTrips()
-        } catch {
-            self.error = error
-        }
-    }
-
-    func deleteTrip(_ trip: Trip) async throws {
-        try await service.delete(trip)
-        trips.removeAll { $0.id == trip.id }
-    }
-}
-
-struct TripsView: View {
-    @State private var store = TripStore(service: .live)
-
-    var body: some View {
-        List(store.trips) { trip in
-            TripRow(trip: trip)
-        }
-        .task { await store.loadTrips() }
-    }
-}
-```
-
-**When MV is enough:** Single-screen features, prototype/MVP, small teams,
-straightforward data flow.
-
-**When to upgrade:** Business logic grows complex, unit testing the view's
-behavior becomes difficult, multiple views need to share and transform the
-same state differently.
-
-## MVVM
-
-Separates view logic into a `ViewModel` that the view observes. The view model
-transforms model data for display and handles user actions.
-
-```swift
-@MainActor
-@Observable
-final class TripListViewModel {
-    private(set) var trips: [TripRowItem] = []
-    private(set) var isLoading = false
-    var searchText = ""
-
-    var filteredTrips: [TripRowItem] {
-        guard !searchText.isEmpty else { return trips }
-        return trips.filter { $0.name.localizedStandardContains(searchText) }
-    }
-
-    private let repository: TripRepository
-
-    init(repository: TripRepository) {
-        self.repository = repository
-    }
-
-    func loadTrips() async {
-        isLoading = true
-        defer { isLoading = false }
-        let models = (try? await repository.fetchAll()) ?? []
-        trips = models.map { TripRowItem(from: $0) }
-    }
-
-    func delete(at offsets: IndexSet) async {
-        let toDelete = offsets.map { filteredTrips[$0] }
-        for item in toDelete {
-            try? await repository.delete(id: item.id)
-        }
-        await loadTrips()
-    }
-}
-
-struct TripRowItem: Identifiable {
-    let id: UUID
-    let name: String
-    let dateRange: String
-
-    init(from trip: Trip) {
-        self.id = trip.id
-        self.name = trip.name
-        self.dateRange = trip.startDate.formatted(.dateTime.month().day())
-            + " – " + trip.endDate.formatted(.dateTime.month().day())
-    }
-}
-
-struct TripListView: View {
-    @State private var viewModel: TripListViewModel
-
-    init(repository: TripRepository) {
-        _viewModel = State(initialValue: TripListViewModel(repository: repository))
-    }
-
-    var body: some View {
-        List {
-            ForEach(viewModel.filteredTrips) { item in
-                Text(item.name)
-            }
-            .onDelete { offsets in
-                Task { await viewModel.delete(at: offsets) }
-            }
-        }
-        .searchable(text: $viewModel.searchText)
-        .task { await viewModel.loadTrips() }
-    }
-}
-```
-
-**Testing a ViewModel:**
-
-```swift
-@Test func filteredTripsMatchesSearch() async {
-    let repo = MockTripRepository(trips: [
-        Trip(name: "Paris"), Trip(name: "Tokyo"), Trip(name: "Paris TX")
-    ])
-    let vm = TripListViewModel(repository: repo)
-    await vm.loadTrips()
-    vm.searchText = "Paris"
-    #expect(vm.filteredTrips.count == 2)
-}
-```
-
-## MVI
-
-Unidirectional data flow: views dispatch **intents**, a **reducer** produces
-new **state**, and **side effects** are handled explicitly.
-
-```swift
-@MainActor
-@Observable
-final class TripListStore {
-    private(set) var state = State()
-
-    struct State {
-        var trips: [Trip] = []
-        var isLoading = false
-        var error: String?
-    }
-
-    enum Intent {
-        case loadTrips
-        case deleteTrip(Trip)
-        case clearError
-    }
-
-    private let service: TripService
-
-    init(service: TripService) {
-        self.service = service
-    }
-
-    func send(_ intent: Intent) {
-        Task { await handle(intent) }
-    }
-
-    private func handle(_ intent: Intent) async {
-        switch intent {
-        case .loadTrips:
-            state.isLoading = true
-            do {
-                state.trips = try await service.fetchTrips()
-            } catch {
-                state.error = error.localizedDescription
-            }
-            state.isLoading = false
-
-        case .deleteTrip(let trip):
-            try? await service.delete(trip)
-            state.trips.removeAll { $0.id == trip.id }
-
-        case .clearError:
-            state.error = nil
-        }
-    }
-}
-```
-
-**Advantages:** Predictable state transitions, easy to log/replay intents,
-clear separation of "what happened" from "what changed."
-
-## TCA
-
-The Composable Architecture (Point-Free) provides composable reducers,
-dependency injection, exhaustive testing, and structured side effects.
-
-Docs: [TCA](https://sosumi.ai/external/https://swiftpackageindex.com/pointfreeco/swift-composable-architecture/main/documentation/composablearchitecture)
-
-```swift
-import ComposableArchitecture
-
-@Reducer
-struct TripList {
-    @ObservableState
-    struct State: Equatable {
-        var trips: IdentifiedArrayOf<Trip> = []
-        var isLoading = false
-        var errorMessage: String?
-    }
-
-    enum Action {
-        case onAppear
-        case tripsLoaded([Trip])
-        case tripsFailed(String)
-        case deleteTrip(Trip.ID)
-    }
-
-    @Dependency(\.tripClient) var tripClient
-
-    var body: some ReducerOf<Self> {
-        Reduce { state, action in
-            switch action {
-            case .onAppear:
-                state.isLoading = true
-                state.errorMessage = nil
-                return .run { send in
-                    do {
-                        let trips = try await tripClient.fetchAll()
-                        await send(.tripsLoaded(trips))
-                    } catch {
-                        await send(.tripsFailed(error.localizedDescription))
-                    }
-                }
-            case .tripsLoaded(let trips):
-                state.trips = IdentifiedArray(uniqueElements: trips)
-                state.isLoading = false
-                return .none
-            case .tripsFailed(let message):
-                state.errorMessage = message
-                state.isLoading = false
-                return .none
-            case .deleteTrip(let id):
-                state.trips.remove(id: id)
-                return .run { _ in try await tripClient.delete(id) }
-            }
-        }
-    }
-}
-```
-
-**Use TCA when:** You need deterministic state transitions for complex state
-flows, structured side-effect sequencing, feature composition, strong reducer
-testing, or app-wide dependency injection.
-
-## Clean Architecture
-
-Layers: **Domain** (entities, use cases, repository protocols) → **Data**
-(repository implementations, network, persistence) → **Presentation** (views,
-view models). Dependencies point inward.
-
-```swift
-// Domain layer
-protocol TripRepository: Sendable {
-    func fetchAll() async throws -> [Trip]
-    func save(_ trip: Trip) async throws
-    func delete(id: UUID) async throws
-}
-
-struct FetchUpcomingTripsUseCase: Sendable {
-    private let repository: TripRepository
-
-    init(repository: TripRepository) {
-        self.repository = repository
-    }
-
-    func execute() async throws -> [Trip] {
-        try await repository.fetchAll()
-            .filter { $0.startDate > .now }
-            .sorted { $0.startDate < $1.startDate }
-    }
-}
-
-// Data layer
-struct RemoteTripRepository: TripRepository {
-    private let client: APIClient
-
-    func fetchAll() async throws -> [Trip] {
-        try await client.request(.get, "/trips")
-    }
-    // ...
-}
-
-// Presentation layer
-@MainActor
-@Observable
-final class UpcomingTripsViewModel {
-    private(set) var trips: [Trip] = []
-    private let useCase: FetchUpcomingTripsUseCase
-
-    init(useCase: FetchUpcomingTripsUseCase) {
-        self.useCase = useCase
-    }
+    init(client: TripClient) { self.client = client }
 
     func load() async {
-        trips = (try? await useCase.execute()) ?? []
+        do { trips = try await client.fetchTrips() }
+        catch { self.error = error }
+    }
+}
+
+struct TripList: View {
+    @State private var store: TripStore
+
+    init(client: TripClient) {
+        _store = State(initialValue: TripStore(client: client))
+    }
+
+    var body: some View {
+        List(store.trips) { Text($0.name) }
+            .task { await store.load() }
     }
 }
 ```
 
-**Use Clean Architecture when:** Strict separation is required (enterprise,
-regulated domains), the domain layer must be testable without any framework
-dependencies, or multiple presentation targets share the same business logic.
+Load [Architecture Pattern Recipes](references/architecture-patterns.md) for MVVM, MVI, TCA, Clean Architecture, Coordinator, and VIPER structure.
 
-## Coordinator Pattern
+## Escalation Signals
 
-Separates navigation logic from views. Especially useful in UIKit or hybrid
-apps with complex navigation flows.
+- Choose MVVM when substantial presentation transformation must be tested without rendering and the adapter has real behavior.
+- Choose MVI when transitions, invalid states, and effects need one auditable reducer-like path.
+- Choose TCA when feature composition, dependency overrides, cancellation, and deterministic effect tests recur across modules.
+- Choose Clean Architecture when independent domain rules and dependency direction matter across multiple delivery/data layers.
+- Add Coordinator for UIKit/hybrid route ownership, deep flow composition, or conditional navigation outside view controllers.
+- Keep VIPER for compatible legacy modules or deliberate migrations; do not start a new SwiftUI feature with it by habit.
 
-Keep Coordinators `@MainActor`, inject dependencies at coordinator creation,
-and pass user-selection callbacks from view models or controllers back to the
-coordinator. The coordinator owns push/modal decisions; feature models own
-business logic.
+Do not escalate merely because a view is long. First extract subviews, services, and focused observable models.
 
-In pure SwiftUI apps, `NavigationStack` with path-based routing often
-replaces the Coordinator pattern. Use Coordinators when you need UIKit
-integration or shared navigation logic across platforms.
+## Migration
 
-## VIPER
+Migrate one feature boundary at a time:
 
-VIPER splits a feature into **View**, **Interactor**, **Presenter**,
-**Entity**, and **Router** roles. Treat it as a maintenance pattern for apps
-that already have strict UIKit module boundaries rather than a default for new
-SwiftUI work.
+1. Freeze behavior with tests and a dependency/state inventory.
+2. Introduce the target boundary around existing operations.
+3. Move one state transition or dependency at a time without rewriting UI and persistence simultaneously.
+4. Compare behavior, navigation, cancellation, error, and persistence results after each slice.
+5. Remove the old path only after no callers or tests depend on it.
 
-**Use VIPER when:** An existing UIKit codebase already organizes screens as
-VIPER modules, teams need explicit handoff contracts between presentation,
-business logic, and routing, or a migration must preserve module boundaries
-while modernizing internals.
-
-**Avoid VIPER when:** A new SwiftUI feature can use MV, MVVM, TCA, or Clean
-Architecture with fewer files and clearer data flow.
-
-## Migration Between Patterns
-
-### ObservableObject → `@Observable`
-
-```swift
-// Before (iOS 16)
-class TripStore: ObservableObject {
-    @Published var trips: [Trip] = []
-}
-// View uses @ObservedObject or @StateObject
-
-// After (iOS 17+)
-@MainActor
-@Observable
-final class TripStore {
-    var trips: [Trip] = []
-}
-// View uses @State for owned; plain injection or @Bindable only when needed
-```
-
-Migration routing: keep Coordinators for UIKit or hybrid boundaries; pure
-SwiftUI flows usually own `NavigationStack`/path state. Route detailed route
-enums, `NavigationSplitView`, sheets, tabs, and deep links to
-`swiftui-navigation`, strict-concurrency diagnostics to `swift-concurrency`,
-and fixtures or parameterized tests to `swift-testing`. Migrate per feature module, not app-wide by default; keep each module internally consistent while allowing different modules to use different patterns during incremental adoption.
-
-### MVVM → MV (simplifying)
-
-If a view model only passes through model data without transforming it,
-remove the view model and let the view observe the model directly.
-
-### MV → MVVM (scaling up)
-
-Extract business logic and data transformation into a view model when:
-- The view's `body` contains conditional logic for data formatting
-- Multiple views need different projections of the same model
-- You need to test logic without instantiating views
-
-### Any → TCA
-
-TCA adoption is typically incremental: wrap one feature's state and actions
-in a `Reducer`, migrate its dependencies to `@Dependency`, and test.
+For `ObservableObject` to Observation, preserve the same owner and mutation isolation before replacing wrappers. For MVVM to MV, delete forwarding view-model members only after views bind to the same model/service behavior. For TCA adoption, wrap one feature's state/actions/effects and migrate dependencies incrementally.
 
 ## Common Mistakes
 
 | Mistake | Fix |
-|---------|-----|
-| Using `ObservableObject` in new iOS 17+ code | Use `@Observable`; isolate UI-observed app state to `@MainActor` for Swift 6 data-race safety |
-| View model that only forwards model properties | Remove the view model; use MV pattern |
-| Massive view model with navigation, networking, and formatting | Split into focused collaborators (coordinator, service, formatter) |
-| Choosing TCA for a two-screen app | Start with MV; adopt TCA when composition and testing demands justify it |
-| Protocol-heavy Clean Architecture for a simple feature | Match architecture complexity to feature complexity |
-| Coordinator pattern in pure SwiftUI without UIKit needs | Use `NavigationStack` path-based routing instead |
-| Starting new SwiftUI modules with VIPER | Reserve VIPER for legacy UIKit maintenance or strict module-boundary migrations |
-| Mixing architecture patterns inside one feature module | Keep one pattern inside each feature module; migrate different modules independently when needed |
+|---|---|
+| Pattern chosen by popularity | Tie it to an observed feature pressure. |
+| View model only forwards properties | Remove it and use MV. |
+| One object owns navigation, networking, formatting, persistence, and UI state | Split by responsibility and dependency direction. |
+| TCA or Clean Architecture applied to trivial screens | Start with MV and preserve an escalation seam. |
+| Coordinator used as a state architecture | Keep it focused on route/lifecycle ownership. |
+| Multiple patterns mixed inside one feature | Define one local state/effect model and migrate at feature boundaries. |
+| Big-bang migration | Move one tested vertical slice and rerun the same proof matrix. |
 
 ## Review Checklist
 
-- [ ] Architecture choice is justified by feature complexity and team needs
-- [ ] Architecture identifies the model/store owner; `@State`, plain injection, and `@Bindable` wiring hand off to `swiftui-patterns`
-- [ ] Dependencies are injected, not created internally (testability)
-- [ ] SwiftUI MV mechanics, `NavigationSplitView`, strict-concurrency diagnostics, fixtures, and parameterized tests hand off to sibling skills explicitly
-- [ ] State mutations happen in a clear, auditable location
-- [ ] View models (if present) are testable without views
-- [ ] No god objects — responsibilities are distributed appropriately
-- [ ] Pattern is consistent within each feature module, including during migrations
+- [ ] Choice is justified by concrete feature/team pressures
+- [ ] State owner, mutation path, dependencies, effects, and navigation owner are explicit
+- [ ] Dependencies are injected and replaceable in tests
+- [ ] Pattern cost is proportional to feature complexity
+- [ ] UI mechanics, navigation APIs, isolation, and test syntax route to sibling skills
+- [ ] Migration preserves behavior one vertical slice at a time
+- [ ] Failure, cancellation, navigation, and persistence behavior are verified after each slice
+- [ ] No forwarding-only layers or god objects remain
 
 ## References
 
-- Apple docs: [Observation](https://sosumi.ai/documentation/observation) | [Observable](https://sosumi.ai/documentation/observation/observable())
-- Apple docs: [Migrating from ObservableObject to Observable](https://sosumi.ai/documentation/swiftui/migrating-from-the-observable-object-protocol-to-the-observable-macro)
-- Apple docs: [`State`](https://sosumi.ai/documentation/swiftui/state) | [`Bindable`](https://sosumi.ai/documentation/swiftui/bindable) | [`Environment`](https://sosumi.ai/documentation/swiftui/environment)
-- Apple docs: [`NavigationStack`](https://sosumi.ai/documentation/swiftui/navigationstack)
-- Apple docs: [Swift Testing](https://sosumi.ai/documentation/testing)
-- TCA docs: [ComposableArchitecture](https://sosumi.ai/external/https://swiftpackageindex.com/pointfreeco/swift-composable-architecture/main/documentation/composablearchitecture)
+- Detailed pattern structures: [references/architecture-patterns.md](references/architecture-patterns.md)
+- Apple: [Observation](https://sosumi.ai/documentation/observation) · [Migrating from ObservableObject to Observable](https://sosumi.ai/documentation/swiftui/migrating-from-the-observable-object-protocol-to-the-observable-macro)
+- TCA: [ComposableArchitecture](https://sosumi.ai/external/https://swiftpackageindex.com/pointfreeco/swift-composable-architecture/main/documentation/composablearchitecture)

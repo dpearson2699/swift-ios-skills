@@ -10,6 +10,7 @@ Encode and decode Swift types using `Codable` (`Encodable & Decodable`) with
 
 ## Contents
 
+- [Decode and Verify Workflow](#decode-and-verify-workflow)
 - [Basic Conformance](#basic-conformance)
 - [Custom CodingKeys](#custom-codingkeys)
 - [Custom Decoding and Encoding](#custom-decoding-and-encoding)
@@ -27,6 +28,16 @@ Encode and decode Swift types using `Codable` (`Encodable & Decodable`) with
 - [Common Mistakes](#common-mistakes)
 - [Review Checklist](#review-checklist)
 - [References](#references)
+
+## Decode and Verify Workflow
+
+1. Decode representative success, missing, null, malformed, acronym-key, and
+   date fixtures.
+2. On failure, inspect `DecodingError`, its `codingPath`, and the raw payload.
+3. Correct only the mismatched model, key, container, or strategy; do not hide
+   contract failures with lossy decoding.
+4. Rerun fixtures and encode/decode round trips where both directions are part
+   of the contract.
 
 ## Basic Conformance
 
@@ -137,36 +148,8 @@ Also use `nestedUnkeyedContainer(forKey:)` for nested arrays.
 
 ## Heterogeneous Arrays
 
-Decode arrays of mixed types using a discriminator field:
-
-```swift
-// JSON: [{"type":"text","content":"Hello"},{"type":"image","url":"pic.jpg"}]
-enum ContentBlock: Decodable {
-    case text(String)
-    case image(URL)
-
-    enum CodingKeys: String, CodingKey { case type, content, url }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let type = try container.decode(String.self, forKey: .type)
-        switch type {
-        case "text":
-            let content = try container.decode(String.self, forKey: .content)
-            self = .text(content)
-        case "image":
-            let url = try container.decode(URL.self, forKey: .url)
-            self = .image(url)
-        default:
-            throw DecodingError.dataCorruptedError(
-                forKey: .type, in: container,
-                debugDescription: "Unknown type: \(type)")
-        }
-    }
-}
-
-let blocks = try JSONDecoder().decode([ContentBlock].self, from: jsonData)
-```
+Load [Advanced Codable Patterns](references/codable-advanced-patterns.md#heterogeneous-arrays)
+for discriminator-based mixed arrays.
 
 ## Date Decoding Strategies
 
@@ -222,102 +205,25 @@ declare explicit `CodingKeys`; the strategy will not synthesize those names.
 
 ## Lossy Array Decoding
 
-By default, one invalid element fails the entire array. Use a wrapper to skip
-invalid elements:
-
-```swift
-struct LossyArray<Element: Decodable>: Decodable {
-    let elements: [Element]
-
-    init(from decoder: Decoder) throws {
-        var container = try decoder.unkeyedContainer()
-        var elements: [Element] = []
-        while !container.isAtEnd {
-            if let element = try? container.decode(Element.self) {
-                elements.append(element)
-            } else {
-                _ = try? container.decode(AnyCodableValue.self) // advance past bad element
-            }
-        }
-        self.elements = elements
-    }
-}
-private struct AnyCodableValue: Decodable {}
-```
+Use lossy arrays only when partial success is part of the product contract; load
+[Lossy Arrays](references/codable-advanced-patterns.md#lossy-arrays).
 
 ## Single Value Containers
 
-Wrap primitives for type safety using `singleValueContainer()`:
-
-```swift
-struct UserID: Codable, Hashable {
-    let rawValue: String
-
-    init(_ rawValue: String) { self.rawValue = rawValue }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        rawValue = try container.decode(String.self)
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(rawValue)
-    }
-}
-// JSON: "usr_abc123" decodes directly to UserID
-```
+Use `singleValueContainer()` for type-safe primitive wrappers; see
+[Single-Value Wrappers](references/codable-advanced-patterns.md#single-value-wrappers).
 
 ## Default Values for Missing Keys
 
-Stored property defaults such as `var theme = "system"` do not make synthesized
-`Decodable` tolerate a missing nonoptional key; synthesis still fails unless the
-property is optional or decoded manually. Use `decodeIfPresent` with
-nil-coalescing when a missing or null key should fall back:
-
-```swift
-struct Settings: Decodable {
-    let theme: String
-    let fontSize: Int
-    let notificationsEnabled: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case theme, fontSize = "font_size"
-        case notificationsEnabled = "notifications_enabled"
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        theme = try container.decodeIfPresent(String.self, forKey: .theme) ?? "system"
-        fontSize = try container.decodeIfPresent(Int.self, forKey: .fontSize) ?? 16
-        notificationsEnabled = try container.decodeIfPresent(
-            Bool.self, forKey: .notificationsEnabled) ?? true
-    }
-}
-```
+Stored defaults do not make synthesized decoding tolerate missing nonoptional
+keys. Load [Missing-Key Defaults](references/codable-advanced-patterns.md#missing-key-defaults)
+when the contract assigns explicit fallback behavior to missing or null values.
 
 ## Encoder and Decoder Configuration
 
-```swift
-let encoder = JSONEncoder()
-encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-
-let decoder = JSONDecoder()
-// Non-conforming floats (NaN, Infinity are not valid JSON)
-encoder.nonConformingFloatEncodingStrategy = .convertToString(
-    positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN")
-decoder.nonConformingFloatDecodingStrategy = .convertFromString(
-    positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN")
-```
-
-### PropertyListEncoder / PropertyListDecoder
-
-```swift
-let plistEncoder = PropertyListEncoder()
-plistEncoder.outputFormat = .xml  // or .binary
-let data = try plistEncoder.encode(settings)
-let decoded = try PropertyListDecoder().decode(Settings.self, from: data)
-```
+Keep matching strategies at the transport/file-format boundary. Load
+[Encoder Configuration](references/codable-advanced-patterns.md#encoder-configuration)
+for nonconforming floats and property-list guidance.
 
 ## Codable with URLSession
 
@@ -330,7 +236,7 @@ func fetchUser(id: Int) async throws -> User {
         throw APIError.invalidResponse
     }
     let decoder = JSONDecoder()
-    decoder.keyDecodingStrategy = .convertFromSnakeCase  // simple keys only; keep CodingKeys for URL/URI/ID
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
     decoder.dateDecodingStrategy = .iso8601
     return try decoder.decode(User.self, from: data)
 }
@@ -345,7 +251,7 @@ struct APIResponse<T: Decodable>: Decodable {
 
 func decodeUsersEnvelope(from data: Data) throws -> [User] {
     let decoder = JSONDecoder()
-    decoder.keyDecodingStrategy = .convertFromSnakeCase  // simple keys only; keep CodingKeys for URL/URI/ID
+    decoder.keyDecodingStrategy = .convertFromSnakeCase
     decoder.dateDecodingStrategy = .iso8601
     return try decoder.decode(APIResponse<[User]>.self, from: data).data
 }
@@ -353,65 +259,15 @@ func decodeUsersEnvelope(from data: Data) throws -> [User] {
 
 ## Codable with SwiftData
 
-SwiftData persists compatible noncomputed stored properties declared on `@Model`
-types. Use `Codable` structs, enums, and other value types directly when that
-value is part of the durable model schema:
-
-```swift
-struct Address: Codable {
-    var street: String
-    var city: String
-    var zipCode: String
-}
-
-@Model class Contact {
-    var name: String
-    var address: Address?  // Codable value-type property stored by SwiftData
-    init(name: String, address: Address? = nil) {
-        self.name = name; self.address = address
-    }
-}
-```
-
-Do not recommend `@Attribute(.transformable)`, encoded `Data`, or encoded
-`String` as a fallback in this Codable skill. Keep schema data as typed
-SwiftData properties and defer unsupported persistence designs to the SwiftData skill.
+Keep schema values typed and route persistence design to `swiftdata`; see
+[Persistence Boundaries](references/codable-advanced-patterns.md#persistence-boundaries).
 
 ## Codable with UserDefaults
 
-`@AppStorage` is only for small UserDefaults-backed preferences. Store `Bool`,
-numeric, `String`, or a `RawRepresentable` type with a primitive raw value. For
-a small `Codable` preference payload, prefer `RawRepresentable` with JSON
-`String` raw storage so `@AppStorage` binds the typed preference directly:
-
-```swift
-struct UserPreferences: Codable {
-    var showOnboarding: Bool = true
-    var accentColor: String = "blue"
-}
-
-extension UserPreferences: RawRepresentable {
-    init?(rawValue: String) {
-        guard let data = rawValue.data(using: .utf8),
-              let decoded = try? JSONDecoder().decode(Self.self, from: data)
-        else { return nil }
-        self = decoded
-    }
-    var rawValue: String {
-        guard let data = try? JSONEncoder().encode(self),
-              let string = String(data: data, encoding: .utf8)
-        else { return "{}" }
-        return string
-    }
-}
-
-struct SettingsView: View {
-    @AppStorage("userPrefs") private var prefs = UserPreferences()
-    var body: some View {
-        Toggle("Show Onboarding", isOn: $prefs.showOnboarding)
-    }
-}
-```
+Use primitives for small preferences. Load
+[Persistence Boundaries](references/codable-advanced-patterns.md#persistence-boundaries)
+for a small Codable `RawRepresentable`/`@AppStorage` handoff; use a real
+persistence layer for larger or durable data.
 
 ## Common Mistakes
 
@@ -427,8 +283,7 @@ let value = try container.decodeIfPresent(String.self, forKey: .bio) ?? ""
 ```swift
 // DON'T -- one bad element kills the whole decode
 let items = try container.decode([Item].self, forKey: .items)
-// DO -- use LossyArray or decode elements individually
-let items = try container.decode(LossyArray<Item>.self, forKey: .items).elements
+// DO -- decode elements individually only when partial success is allowed
 ```
 
 **3. Date strategy mismatch:**
@@ -484,6 +339,7 @@ decoder.keyDecodingStrategy = .convertFromSnakeCase
 
 ## References
 
+- [Advanced Codable patterns](references/codable-advanced-patterns.md) -- mixed arrays, lossy decoding, wrappers, defaults, configuration, and persistence boundaries
 - [Codable](https://sosumi.ai/documentation/swift/codable/) -- protocol combining Encodable and Decodable
 - [JSONDecoder](https://sosumi.ai/documentation/foundation/jsondecoder/) -- decodes JSON data into Codable types
 - [JSONEncoder](https://sosumi.ai/documentation/foundation/jsonencoder/) -- encodes Codable types as JSON data

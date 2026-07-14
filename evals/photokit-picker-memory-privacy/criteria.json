@@ -1,0 +1,36 @@
+{
+  "context": "Tests privacy-preserving photo selection, asynchronous media loading, permission scope, and display-sized decoding.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {
+      "name": "Modern picker",
+      "description": "Uses PhotosPicker or PHPickerViewController rather than UIImagePickerController for user-selected library media.",
+      "max_score": 15
+    },
+    {
+      "name": "Picker privacy",
+      "description": "States that browsing and selecting through the system picker does not require broad photo-library permission.",
+      "max_score": 20
+    },
+    {
+      "name": "Async loading",
+      "description": "Loads PhotosPickerItem content asynchronously with loadTransferable and handles nil or thrown decode failures.",
+      "max_score": 15
+    },
+    {
+      "name": "Display downsampling",
+      "description": "Downsamples original image data with CGImageSource to the target display size before creating grid images.",
+      "max_score": 25
+    },
+    {
+      "name": "Explicit access scope",
+      "description": "Requests read-write photo-library access only for full-library operations such as a custom asset browser and accounts for limited access.",
+      "max_score": 15
+    },
+    {
+      "name": "Usage descriptions",
+      "description": "Associates NSPhotoLibraryUsageDescription or NSPhotoLibraryAddUsageDescription with the explicit read or write operations that require them.",
+      "max_score": 10
+    }
+  ]
+}

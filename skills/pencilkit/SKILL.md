@@ -6,8 +6,7 @@ description: "Add Apple Pencil drawing with PKCanvasView, PKToolPicker, PKDrawin
 # PencilKit
 
 Capture Apple Pencil and finger input using `PKCanvasView`, manage drawing
-tools with `PKToolPicker`, serialize drawings with `PKDrawing`, and wrap
-PencilKit in SwiftUI. Targets Swift 6.3 / iOS 26+.
+tools with `PKToolPicker`, serialize drawings with `PKDrawing`, and wrap PencilKit in SwiftUI.
 
 ## Contents
 

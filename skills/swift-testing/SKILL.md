@@ -116,7 +116,9 @@ When reviewing migration code or plans, do not collapse every XCTest construct i
 
 State coexistence explicitly: XCTest and Swift Testing can coexist during migration. Keep UI automation, performance benchmarks, and common snapshot-test flows on XCTest/XCUITest or snapshot tooling, and separate files or targets when that makes runner expectations clearer.
 
-For Xcode 27-era migrations, mention test framework interoperability when reviewing mixed helpers. Frame what changed: test plans created before Xcode 27 inherit `limited` mode, where cross-framework XCTest issues are warnings; new Xcode 27 projects use `complete` mode, where those issues remain errors. Xcode and SwiftPM can surface XCTest failures from Swift Testing tests and Swift Testing issues from XCTest tests depending on the configured interop mode (`limited`, `complete`, `strict`, or `none`). Prefer `complete` or `strict` while migrating helpers, use `SWIFT_TESTING_XCTEST_INTEROP_MODE` for SwiftPM when needed, and do not claim cross-framework APIs are categorically forbidden. Still prefer native Swift Testing APIs in new Swift Testing tests and convert helper failures to `Issue.record`, `#expect`, `#require`, or `Test.cancel` over time.
+Migrate sequentially: inventory XCTest-only capabilities, migrate one file or suite, compile, run the same tests, compare discovery/pass/fail/skip counts, fix regressions, and only then continue. Do not bulk-rewrite assertions without proving that required unwraps, unconditional failures, async expectations, and setup behavior remain equivalent.
+
+For Xcode 27-era mixed helpers, check the configured interoperability mode rather than claiming cross-framework APIs are forbidden. Older test plans inherit `limited`; new projects use `complete`; `strict` and `none` are also available. Prefer `complete` or `strict` during migration and use `SWIFT_TESTING_XCTEST_INTEROP_MODE` for SwiftPM when needed. See [references/testing-advanced.md](references/testing-advanced.md) for the mode matrix and toolchain gates.
 
 Migration defaults:
 - `XCTAssert*` -> `#expect(...)`
@@ -203,11 +205,7 @@ Test code that calls `exit()`, `fatalError()`, or `preconditionFailure()`. Exit 
 
 ## Version-Gated APIs
 
-For advanced Swift Testing APIs, check the toolchain before recommending them. When reviewing user code that mentions one of these APIs, name the gate for each API you correct:
-- Exit testing requires Swift 6.2 / Xcode 26.0 and does not support iOS, tvOS, or watchOS runtime targets.
-- Exit-test capture lists require the Swift 6.3 compiler. If an exit-test closure reads parent-process values, use an explicit capture list and state that captured values must be `Sendable` and `Codable`.
-- `Test.cancel(_:)`, `Issue.record(_:severity:)`, and image attachment recording require Swift 6.3 / Xcode 26.4-era support as noted in [references/testing-advanced.md](references/testing-advanced.md).
-- When fixing a `Test.cancel(_:)` sample, state both shape and gate: the test must be `throws` or `async throws`, and `Test.cancel(_:)` requires Swift 6.3 / Xcode 26.4-era support.
+For advanced APIs, state the exact toolchain and runtime gate beside the correction. The table below is the canonical summary; [references/testing-advanced.md](references/testing-advanced.md) contains the detailed matrix.
 
 ```swift
 @Test func exitsWithCapturedCode() async {
@@ -220,7 +218,7 @@ For advanced Swift Testing APIs, check the toolchain before recommending them. W
 
 ## Advanced API Review Checklist
 
-When reviewing stale or beta-era Swift Testing samples, include the exact correction and the gate for every API the prompt mentions:
+When reviewing stale or beta-era samples, include the exact correction and gate for every API the prompt mentions:
 
 | User code to correct | Current guidance |
 |---|---|

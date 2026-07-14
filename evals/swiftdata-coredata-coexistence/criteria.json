@@ -1,0 +1,36 @@
+{
+  "context": "Tests SwiftData ownership of coexistence work, persistent-store alignment, rename mapping, and precise Codable guidance.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {
+      "name": "SwiftData ownership",
+      "description": "Treats Core Data and SwiftData coexistence or migration as SwiftData-owned guidance rather than expanding into a standalone Core Data tutorial.",
+      "max_score": 15
+    },
+    {
+      "name": "Existing store URL",
+      "description": "Points the SwiftData configuration at the existing persistent store URL when sharing or migrating the store.",
+      "max_score": 20
+    },
+    {
+      "name": "Schema alignment",
+      "description": "Requires entity names, property names, types, and relationships to align across the Core Data model and SwiftData @Model classes.",
+      "max_score": 20
+    },
+    {
+      "name": "Rename mapping",
+      "description": "Uses @Attribute(originalName:) or an equivalent persisted-name mapping for the renamed field.",
+      "max_score": 15
+    },
+    {
+      "name": "Codable precision",
+      "description": "Allows compatible Codable structs or enums as SwiftData properties without inventing an unsupported iOS 18-only availability threshold.",
+      "max_score": 15
+    },
+    {
+      "name": "Single writer",
+      "description": "Assigns one persistence stack as the writer for each entity during migration instead of writing the same entity from Core Data and SwiftData concurrently.",
+      "max_score": 15
+    }
+  ]
+}

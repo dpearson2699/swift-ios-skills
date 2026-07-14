@@ -48,8 +48,8 @@
       "max_score": 5
     },
     {
-      "name": "No unrelated rewrite",
-      "description": "Does not turn the review into broad BLE discovery, UI, or unrelated audio session guidance.",
+      "name": "Capability accuracy",
+      "description": "Declares only capabilities the hardware can actually support and treats placement as requiring ongoing placement updates.",
       "max_score": 5
     }
   ]

@@ -1,5 +1,15 @@
 # List and Section
 
+## Contents
+
+- [Intent](#intent)
+- [Core patterns](#core-patterns)
+- [Example: feed list with scroll-to-top](#example-feed-list-with-scroll-to-top)
+- [Example: settings-style list](#example-settings-style-list)
+- [Design choices to keep](#design-choices-to-keep)
+- [iOS 26 Scroll Edge Effects](#ios-26-scroll-edge-effects)
+- [Pitfalls](#pitfalls)
+
 ## Intent
 
 Use `List` for feed-style content and settings-style rows where built-in row reuse, selection, and accessibility matter.

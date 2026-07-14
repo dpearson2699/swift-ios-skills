@@ -1,0 +1,36 @@
+{
+  "context": "Tests SwiftData CloudKit schema restrictions, relationship precision, large data storage, and deployment preparation.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {
+      "name": "No uniqueness",
+      "description": "Removes or rejects @Attribute(.unique), #Unique, and equivalent uniqueness constraints for the CloudKit-backed model.",
+      "max_score": 20
+    },
+    {
+      "name": "Optional relationship",
+      "description": "Makes the CloudKit-backed relationship optional rather than requiring the related model.",
+      "max_score": 15
+    },
+    {
+      "name": "Delete rule",
+      "description": "Rejects the deny delete rule for the CloudKit-backed relationship and chooses a compatible rule.",
+      "max_score": 15
+    },
+    {
+      "name": "External blob storage",
+      "description": "Uses @Attribute(.externalStorage) or an equivalent external-storage strategy for the large image Data property.",
+      "max_score": 15
+    },
+    {
+      "name": "Scalar precision",
+      "description": "Does not claim that every scalar property must become optional for SwiftData CloudKit sync.",
+      "max_score": 15
+    },
+    {
+      "name": "Cloud rollout",
+      "description": "Covers the iCloud CloudKit capability, remote-notification mode, and schema promotion or additive rollout concerns.",
+      "max_score": 20
+    }
+  ]
+}

@@ -360,32 +360,10 @@ revocation, `3` = + hard revocation.
 ## Token Watching
 
 `TKTokenWatcher` monitors token insertion and removal. Available on iOS 10+
-and macOS 10.12+.
-
-```swift
-import CryptoTokenKit
-
-final class TokenMonitor {
-    private let watcher = TKTokenWatcher()
-
-    func startMonitoring() {
-        for tokenID in watcher.tokenIDs {
-            print("Token present: \(tokenID)")
-            if let info = watcher.tokenInfo(forTokenID: tokenID) {
-                print("  Driver: \(info.driverName ?? "unknown")")
-                print("  Slot: \(info.slotName ?? "unknown")")
-            }
-        }
-
-        watcher.setInsertionHandler { [weak self] tokenID in
-            print("Token inserted: \(tokenID)")
-            self?.watcher.addRemovalHandler({ removedTokenID in
-                print("Token removed: \(removedTokenID)")
-            }, forTokenID: tokenID)
-        }
-    }
-}
-```
+and macOS 10.12+. Enumerate `tokenIDs`, install an insertion handler, then add a
+removal handler for each observed token. Keep the watcher alive for as long as
+monitoring is required. For slot-level reader state, use
+[Smart Card Slot Monitoring](references/cryptotokenkit-patterns.md#smart-card-slot-monitoring).
 
 ## Error Handling
 

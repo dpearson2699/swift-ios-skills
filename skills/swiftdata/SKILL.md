@@ -27,7 +27,9 @@ with Swift 6.3.
 
 ## Model Definition
 
-Apply `@Model` to a **class** (not struct). Generates `PersistentModel`, `Observable`, `Sendable`.
+Apply `@Model` to a **class** (not struct). It synthesizes `PersistentModel`
+conformance. Model instances remain context/actor-bound; pass their
+`PersistentIdentifier`, not the instance, across actors.
 
 ```swift
 @Model
@@ -103,6 +105,13 @@ For any SwiftData CloudKit setup or schema-review task, include a separate
   production changes as additive only.
 
 ## CRUD Operations
+
+For destructive batches and migrations, first run the exact predicate or
+version hop against a disposable copy and record affected identifiers/counts.
+Execute with explicit transaction/save semantics, refetch, and verify values,
+relationships, counts, and invariants. On failure, fix the predicate/schema and
+restore a pristine fixture before retrying; never blindly replay a destructive
+operation.
 
 ```swift
 // CREATE
@@ -225,6 +234,8 @@ static let migrateV2toV3 = MigrationStage.custom(
 ```
 
 Lightweight handles: adding optional/defaulted properties, renaming (`originalName`), removing properties, adding model types.
+Verify the stage list covers every supported version hop, then migrate a fresh
+copy of each old store and assert post-migration data before release.
 
 ## Core Data Coexistence Boundary
 

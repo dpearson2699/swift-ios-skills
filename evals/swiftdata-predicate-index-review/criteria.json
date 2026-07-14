@@ -1,0 +1,36 @@
+{
+  "context": "Tests predicate capture rules, supported expressions, targeted indexing, and evidence-based migration guidance.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {
+      "name": "Captured clock",
+      "description": "Captures the current time in a local value before constructing the #Predicate instead of evaluating Date.now directly inside it.",
+      "max_score": 20
+    },
+    {
+      "name": "Supported predicate",
+      "description": "Removes arbitrary model helper calls from #Predicate and uses supported stored-property expressions or post-fetch filtering when necessary.",
+      "max_score": 20
+    },
+    {
+      "name": "Targeted indexes",
+      "description": "Indexes only properties used frequently for filtering or sorting rather than indexing every property.",
+      "max_score": 15
+    },
+    {
+      "name": "Compound index",
+      "description": "Considers a compound index for a repeatedly used filter-and-sort property combination.",
+      "max_score": 15
+    },
+    {
+      "name": "Migration evidence",
+      "description": "Does not guarantee that index changes are migration-free and requires schema or migration testing.",
+      "max_score": 15
+    },
+    {
+      "name": "Query profiling",
+      "description": "Uses profiling, Instruments, or Core Data diagnostics to verify the query and index effect.",
+      "max_score": 15
+    }
+  ]
+}

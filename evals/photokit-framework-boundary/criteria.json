@@ -1,0 +1,36 @@
+{
+  "context": "Tests whether PhotoKit guidance owns selection, explicit library access, camera capture, and image handling without absorbing playback or cache architecture.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {
+      "name": "Picker ownership",
+      "description": "Keeps PhotosPicker or PHPickerViewController selection and PhotosPickerItem loading in PhotoKit scope.",
+      "max_score": 20
+    },
+    {
+      "name": "Library ownership",
+      "description": "Keeps PHPhotoLibrary authorization, limited access, and custom asset browsing in PhotoKit scope.",
+      "max_score": 20
+    },
+    {
+      "name": "Camera ownership",
+      "description": "Keeps AVCaptureSession camera configuration and capture lifecycle in the camera-capture portion of the skill.",
+      "max_score": 20
+    },
+    {
+      "name": "Playback handoff",
+      "description": "Routes detailed AVPlayer and playback-session behavior to AVKit or dedicated AVFoundation playback guidance.",
+      "max_score": 15
+    },
+    {
+      "name": "Caching handoff",
+      "description": "Routes production remote-image cache architecture to dedicated image-loading or networking guidance while retaining display downsampling advice.",
+      "max_score": 15
+    },
+    {
+      "name": "Permission boundary",
+      "description": "Does not require full photo-library access for the picker-only path and requests explicit access only for full-library operations.",
+      "max_score": 10
+    }
+  ]
+}

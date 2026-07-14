@@ -1,6 +1,6 @@
 ---
 name: ios-simulator
-description: "Manages iOS Simulator devices and tests app behavior using xcrun simctl. Covers device lifecycle (create, boot, shutdown, erase, delete), app install and launch, push notification simulation, location simulation, permission grants via privacy subcommand, deep link testing via openurl, status bar overrides, screenshot and video recording, log streaming with os_log filtering, get_app_container paths, and #if targetEnvironment(simulator) compile-time checks. Use when creating or managing simulator devices, testing push notifications without APNs, simulating GPS locations, granting or resetting privacy permissions, capturing screenshots or screen recordings from the command line, streaming device logs, debugging simulator boot failures, troubleshooting CoreSimulator issues, or checking simulator hardware limitations."
+description: "Manages iOS Simulator devices and app tests with xcrun simctl: lifecycle, install/launch, push and location simulation, privacy permissions, deep links, status-bar overrides, screenshots/video, log streaming, app containers, and targetEnvironment(simulator). Use when scripting Simulator workflows, debugging CoreSimulator boot failures, or deciding which hardware, performance, networking, memory-pressure, and security behaviors require a physical device."
 ---
 
 # iOS Simulator
@@ -372,9 +372,7 @@ Do not classify "iCloud sync" as a single hardware-only item. Split it explicitl
 | Automatic iCloud sync behavior | Not fully simulated — validate notification-triggered sync, real account/device propagation, conflicts, and background behavior on hardware |
 | Cellular network conditions | No — use Network Link Conditioner on Mac |
 
-Treat Simulator performance as a functional smoke signal only. When answering performance-boundary questions, explicitly name CPU throughput/general processing speed and networking throughput/latency alongside graphics, Metal shader correctness, memory bandwidth, frame timing, memory pressure, Jetsam behavior, and thermal behavior.
-
-Use this minimum wording in release-checklist answers: "Simulator is not an accurate performance proxy for processing/CPU, graphics/Metal, memory, networking throughput/latency, Metal GPU behavior, frame timing, memory pressure/Jetsam, or thermal behavior." If a prompt only names "Metal performance," still include processing, memory, and networking in the device-verification list.
+Treat Simulator performance as a functional smoke signal only. Device verification must cover CPU processing, networking throughput/latency, graphics and Metal behavior, memory bandwidth/pressure and Jetsam, frame timing, and thermals—even when the reported concern names only one category.
 
 ## Common Mistakes
 

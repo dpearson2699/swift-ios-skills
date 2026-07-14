@@ -6,20 +6,12 @@ description: "Implement, review, or improve Live Activities and Dynamic Island e
 # ActivityKit
 
 ActivityKit owns real-time, glanceable Live Activities displayed on the Lock
-Screen and, on supported devices, Dynamic Island. StandBy, CarPlay, and a
-paired Mac can also display Live Activities, but do not blur that core routing:
-ordinary Home Screen/timeline widgets belong in `widgetkit`, and generic APNs
-setup belongs in `push-notifications`. Live Activity push payload shape stays in
-ActivityKit: device-token updates use `apns-push-type: liveactivity` and
-`apns-topic: <bundle-id>.push-type.liveactivity`, while `aps.content-state` must
-decode into the app's actual `ActivityAttributes.ContentState` `Codable` shape.
-Do not assume `Date` or `ClosedRange<Date>` use Unix timestamp
-`lowerBound`/`upperBound` dictionaries unless the Swift model and server
-contract coordinate that encoding. Boundary answers that keep ActivityKit APNs
-payloads, `content-state`, or Live Activity data contracts in scope should
-include these payload-shape invariants even when routing generic APNs setup
-elsewhere. Patterns target iOS 26+ with Swift 6.3;
-modern `ActivityContent` lifecycle examples require iOS 16.2+ unless noted.
+Screen and Dynamic Island. Ordinary timeline widgets belong in `widgetkit`, and
+generic APNs setup belongs in `push-notifications`; ActivityKit owns the Live
+Activity lifecycle and payload contract. `aps.content-state` must decode into
+the exact `ActivityAttributes.ContentState` shape, including any coordinated
+custom date/range encoding. Modern `ActivityContent` lifecycle examples require
+iOS 16.2+ unless noted.
 
 See [references/activitykit-patterns.md](references/activitykit-patterns.md) for complete code patterns including push payload formats, concurrent activities, state observation, and testing.
 
@@ -40,13 +32,16 @@ See [references/activitykit-patterns.md](references/activitykit-patterns.md) for
 
 ### 1. Create a new Live Activity
 
-1. Add `NSSupportsLiveActivities = YES` to the host app's Info.plist.
-2. Define an `ActivityAttributes` struct with a nested `ContentState`.
-3. Create an `ActivityConfiguration` in the widget bundle with Lock Screen
-   content and Dynamic Island closures.
-4. Start the activity with `Activity.request(attributes:content:pushType:)`.
-5. Update with `activity.update(_:)` and end with `activity.end(_:dismissalPolicy:)`.
-6. Forward push tokens to your server for remote updates.
+1. Verify the host app capability and `NSSupportsLiveActivities = YES`.
+2. Define `ActivityAttributes.ContentState`; encode and decode a representative
+   fixture that matches the server payload contract.
+3. Create `ActivityConfiguration` and preview Lock Screen and Dynamic Island
+   states, including stale and terminal content.
+4. Check `ActivityAuthorizationInfo.areActivitiesEnabled`, then request and
+   observe the activity lifecycle.
+5. Exercise local update and every terminal end path.
+6. For remote updates, validate a complete reference payload before registering
+   rotating update or push-to-start tokens with the server.
 
 ### 2. Review existing Live Activity code
 
@@ -335,9 +330,10 @@ Send an HTTP/2 POST to APNs with these headers and JSON body:
 The `aps.alert` payload controls visible alert/banner/sound behavior; priority
 alone does not create an alert.
 
-**Payload body:** Put `timestamp`, `event`, and the full `content-state` inside `aps`. Use `event: "update"` for updates, `event: "end"` plus optional `dismissal-date` for ending, and `event: "start"` with `attributes-type`, `attributes`, `content-state`, and required `alert` for push-to-start. Add `stale-date`, `relevance-score`, or `alert` when appropriate.
-
-The `content-state` JSON must decode into `ActivityAttributes.ContentState`. Use the default synthesized `Codable` key and value shape unless the Swift model declares custom `CodingKeys`; then coordinate those exact keys and value shapes server-side. Do not assume `Date` or `ClosedRange<Date>` values are Unix timestamp dictionaries unless your Swift model explicitly encodes them that way. Mismatched keys or types can prevent ActivityKit from applying the update.
+Put `timestamp`, `event`, and the full `content-state` inside `aps`. Validate
+update, end, and push-to-start bodies against the complete examples in
+[Push-to-Update Payloads](references/activitykit-patterns.md#push-to-update-server-payload-format),
+including the exact `Codable` date/range representation.
 
 ### Push-to-Start
 
@@ -436,12 +432,6 @@ let activity = try Activity.request(
 
 **DON'T:** Assume every device has Dynamic Island.
 **DO:** Design for the Lock Screen as the primary surface; Dynamic Island is supplementary.
-
-**DON'T:** Treat Lock Screen or Dynamic Island Live Activities as ordinary Home Screen/timeline widgets.
-**DO:** Use ActivityKit for the Live Activity lifecycle and those display surfaces; route ordinary Home Screen/timeline widgets to `widgetkit`.
-
-**DON'T:** Reduce Live Activity payload routing to generic `content-state` matching when the prompt involves APNs payloads.
-**DO:** Include the actual `ContentState` `Codable` contract and coordinated `Date`/`ClosedRange<Date>` encoding caveat; route generic APNs auth and registration to `push-notifications`.
 
 **DON'T:** Store sensitive information in ActivityAttributes (visible on Lock Screen).
 **DO:** Keep sensitive data in the app and show only safe-to-display summaries.

@@ -8,7 +8,6 @@ description: "Build direct Bluetooth Low Energy workflows with Core Bluetooth. U
 Scan for, connect to, and exchange data with Bluetooth Low Energy (BLE) devices.
 Covers the central role (scanning and connecting to peripherals), the peripheral
 role (advertising services), background modes, and state restoration.
-Targets Swift 6.3 / iOS 26+.
 Use `accessorysetupkit` for privacy-preserving accessory discovery and setup;
 use this skill for direct Core Bluetooth GATT communication.
 
@@ -380,82 +379,13 @@ func peripheralManager(
 
 ## Common Mistakes
 
-### DON'T: Scan or connect before poweredOn
-
-```swift
-// WRONG: Scanning immediately -- manager may not be ready
-let manager = CBCentralManager(delegate: self, queue: nil)
-manager.scanForPeripherals(withServices: nil) // May silently fail
-
-// CORRECT: Wait for poweredOn in the delegate
-func centralManagerDidUpdateState(_ central: CBCentralManager) {
-    if central.state == .poweredOn {
-        central.scanForPeripherals(withServices: [serviceUUID])
-    }
-}
-```
-
-### DON'T: Lose the peripheral reference
-
-Core Bluetooth does not retain discovered peripherals. If you don't hold a
-strong reference, the peripheral is deallocated and the connection fails silently.
-
-```swift
-// WRONG: No strong reference kept
-func centralManager(_ central: CBCentralManager,
-                    didDiscover peripheral: CBPeripheral, ...) {
-    central.connect(peripheral) // peripheral may be deallocated
-}
-
-// CORRECT: Retain the peripheral
-func centralManager(_ central: CBCentralManager,
-                    didDiscover peripheral: CBPeripheral, ...) {
-    self.discoveredPeripheral = peripheral // Strong reference
-    central.connect(peripheral)
-}
-```
-
-### DON'T: Scan for nil services in production
-
-```swift
-// WRONG: Discovers every BLE device in range -- drains battery
-centralManager.scanForPeripherals(withServices: nil)
-
-// CORRECT: Specify the service UUIDs you need
-centralManager.scanForPeripherals(withServices: [targetServiceUUID])
-```
-
-### DON'T: Assume connection order or timing
-
-```swift
-// WRONG: Assuming immediate connection
-centralManager.connect(peripheral)
-discoverServicesNow() // Peripheral not connected yet
-
-// CORRECT: Discover services in the didConnect callback
-func centralManager(_ central: CBCentralManager,
-                    didConnect peripheral: CBPeripheral) {
-    peripheral.delegate = self
-    peripheral.discoverServices([serviceUUID])
-}
-```
-
-### DON'T: Write without checking properties and flow control
-
-```swift
-// WRONG: May fail, report an error, or provide no confirmation
-peripheral.writeValue(data, for: characteristic, type: .withResponse)
-
-// CORRECT: Check properties, length, and .withoutResponse flow control
-if characteristic.properties.contains(.write),
-   data.count <= peripheral.maximumWriteValueLength(for: .withResponse) {
-    peripheral.writeValue(data, for: characteristic, type: .withResponse)
-} else if characteristic.properties.contains(.writeWithoutResponse),
-          peripheral.canSendWriteWithoutResponse,
-          data.count <= peripheral.maximumWriteValueLength(for: .withoutResponse) {
-    peripheral.writeValue(data, for: characteristic, type: .withoutResponse)
-}
-```
+| Mistake | Fix |
+|---|---|
+| Scan/connect before `.poweredOn` | Start BLE work from `centralManagerDidUpdateState`. |
+| Discovered peripheral is not retained | Hold a strong reference through connection and discovery. |
+| Production scan passes `nil` services | Filter by the service UUIDs the feature needs. |
+| Service discovery begins before `didConnect` | Advance only from delegate callbacks and handle failure/disconnect paths. |
+| Writes ignore characteristic properties or payload limits | Select the supported write type, respect `maximumWriteValueLength`, and gate `.withoutResponse` on `canSendWriteWithoutResponse`. |
 
 ## Review Checklist
 

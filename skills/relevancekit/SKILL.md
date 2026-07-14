@@ -421,31 +421,11 @@ Call this whenever relevance data changes -- not only during timeline refreshes.
 
 ### Previewing Relevant Widgets
 
-Use Xcode previews to verify appearance without simulating real conditions.
-
-```swift
-// Preview with sample entries
-#Preview("Events", widget: MyRelevantWidget.self, relevanceEntries: {
-    [EventEntry(event: .surfing), EventEntry(event: .meditation)]
-})
-
-// Preview with relevance configurations
-#Preview("Relevance", widget: MyRelevantWidget.self, relevance: {
-    WidgetRelevance([
-        WidgetRelevanceAttribute(configuration: MyIntent(event: .surfing),
-                                 context: .date(Date(), kind: .scheduled))
-    ])
-})
-
-// Preview with the full provider
-#Preview("Provider", widget: MyRelevantWidget.self,
-         relevanceProvider: MyRelevanceProvider())
-```
-
-### Testing
-
-Enable **WidgetKit Developer Mode** in Settings > Developer on the watch to
-bypass Smart Stack rotation limits during development.
+Use the entry, relevance-configuration, and full-provider recipes in
+[Preview Recipes](references/relevancekit-patterns.md#preview-recipes). Enable
+WidgetKit Developer Mode on the watch, test permissions granted and denied, and
+finish on a physical Apple Watch; see
+[Testing Tips](references/relevancekit-patterns.md#testing-tips).
 
 ## Common Mistakes
 

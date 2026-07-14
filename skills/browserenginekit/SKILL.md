@@ -357,34 +357,23 @@ longer needs. Use the latest available revision for the strongest restrictions.
 
 ### JIT Compilation
 
-Web content extensions that JIT-compile JavaScript toggle memory between
-writable and executable states. Use the `BE_JIT_WRITE_PROTECT_TAG` from
-BrowserEngineCore:
+Web content extensions that JIT-compile JavaScript must transition pages with BrowserEngineKit's witnessed APIs:
 
 ```swift
 import BrowserEngineCore
 
-// BE_JIT_WRITE_PROTECT_TAG is used with pthread_jit_write_protect_np
-// to control JIT memory page permissions
+be_memory_inline_jit_restrict_rwx_to_rw_with_witness(...)
+// write generated code
+be_memory_inline_jit_restrict_rwx_to_rx_with_witness(...)
 ```
 
 Requires the `com.apple.security.cs.allow-jit` and
 `com.apple.developer.kernel.extended-virtual-addressing` entitlements on
-the web content extension only.
+the web content extension only. If an implementation instead uses `pthread_jit_write_with_callback_np`, it also needs the JIT write allowlist entitlement; do not present `BE_JIT_WRITE_PROTECT_TAG` alone as a complete protection strategy.
 
 ### arm64e Requirement
 
-All executables (host app and extensions) must be built with the `arm64e`
-instruction set for distribution. Build as a universal binary to also support
-`arm64` iPads.
-
-In Xcode build settings or xcconfig:
-
-```
-ARCHS[sdk=iphoneos*]=arm64e
-```
-
-Do not use `arm64e` for Simulator targets.
+Distribution builds must satisfy the current alternative-browser entitlement profile's device architecture, PAC, and MIE requirements. Keep the host and extension configuration consistent, include the required device slices, and test the signed archive on eligible devices. Embedded engines differ: they are arm64-only and cannot use JIT. Do not force `arm64e` onto Simulator builds or copy a one-line `ARCHS` override that drops required slices.
 
 ## Downloads
 

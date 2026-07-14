@@ -1,11 +1,11 @@
 ---
 name: ios-accessibility
-description: "Implements, reviews, or improves accessibility in iOS/macOS apps with SwiftUI, UIKit, and AppKit. Use when adding VoiceOver, Voice Control, Switch Control, or Full Keyboard Access support; when working with accessibility labels, hints, values, traits, accessibilityInputLabels, NSAccessibility, grouping, reading order, accessibility focus restoration with @AccessibilityFocusState, Dynamic Type, @ScaledMetric, custom rotors, accessibility actions, XCTest accessibility checks, App Store Accessibility Nutrition Labels, App Store Connect accessibility answers, a11y compliance audits, or system accessibility preferences."
+description: "Builds and audits SwiftUI, UIKit, and AppKit accessibility for VoiceOver, Voice Control, Switch Control, Full Keyboard Access, Dynamic Type, focus restoration, labels/traits/actions, traversal, custom rotors, NSAccessibility, XCTest checks, adaptive system preferences, and App Store accessibility declarations."
 ---
 
 # iOS/macOS Accessibility - SwiftUI, UIKit, and AppKit
 
-Every user-facing view must be usable with VoiceOver, Switch Control, Voice Control, Full Keyboard Access, and other assistive technologies. This skill covers SwiftUI, UIKit, and AppKit patterns required to build accessible iOS, iPadOS, and macOS apps.
+Build SwiftUI, UIKit, and AppKit interfaces that remain operable with VoiceOver, Switch Control, Voice Control, Full Keyboard Access, and adaptive accessibility settings.
 
 ## Contents
 
@@ -62,7 +62,7 @@ Focus management is where most apps fail. When a sheet, alert, or popover is dis
 
 This section is about accessibility focus for assistive technologies. For keyboard focus, directional focus, `focusSection()`, scene-focused values, and `UIFocusGuide`, use the `focus-engine` skill.
 
-When triaging broad focus bugs, still call out accessibility traversal separately: accessibility element order and grouping in the view hierarchy directly affect VoiceOver swipe order, Switch Control scan order, Voice Control overlay targeting, and Full Keyboard Access reachability review. Route keyboard-focus implementation to `focus-engine`, but keep this traversal impact in `ios-accessibility`.
+Audit element order and grouping in [Traversal Order](#traversal-order); route keyboard-focus mechanics to `focus-engine`.
 
 ### `@AccessibilityFocusState` (iOS 15+)
 
@@ -242,7 +242,7 @@ See [references/a11y-patterns.md](references/a11y-patterns.md) for custom action
 
 Full Keyboard Access (iOS/iPadOS 13.4+) lets users navigate and operate an app with a hardware keyboard.
 
-This skill covers the accessibility review surface: whether all controls are reachable, clearly labeled, visibly focused, and operable without touch. If the bug is Tab traversal, skipped custom cards, `.focusable()`, `@FocusState`, `focusSection()`, directional movement, scene-focused values, tvOS focus behavior, or `UIFocusGuide`, route implementation to the `focus-engine` skill first. Keep only the accessibility finding here.
+Audit whether every control is reachable, labeled, visibly focused, and operable without touch. Route Tab/directional focus, `.focusable()`, `@FocusState`, `focusSection()`, scene-focused values, tvOS focus, and `UIFocusGuide` implementation to `focus-engine`.
 
 - Every interactive element can be reached and activated with the keyboard.
 - Traversal order is logical and does not trap focus.
@@ -254,7 +254,7 @@ See [references/a11y-patterns.md](references/a11y-patterns.md) for Full Keyboard
 
 ## Traversal Order
 
-Explicitly assess how accessibility element order and grouping affect traversal outcomes: VoiceOver swipe order, Switch Control scan order, Voice Control overlay targeting, and Full Keyboard Access reachability review can all break when grouping/order differs from visual or task order. Missing labels, duplicate labels, excessive row children, hidden custom controls, or grouping that does not match the visual/task order can make traversal confusing across all of them. Keep implementation mechanics for keyboard or directional routing in `focus-engine`; keep the accessibility impact and ordering audit here.
+Element order and grouping must follow visual and task order across VoiceOver swipe order, Switch Control scanning, Voice Control overlays, and Full Keyboard Access review. Check missing or duplicate labels, excessive row children, hidden custom controls, focus traps, and groups whose order diverges from the task. Keep keyboard or directional routing mechanics in `focus-engine`.
 
 ## Assistive Access (iOS 18+)
 
@@ -281,70 +281,15 @@ Key guidelines:
 
 ## UIKit Accessibility Patterns
 
-When working with UIKit views:
-
-- Set `isAccessibilityElement = true` on meaningful custom views.
-- Set `accessibilityLabel` on all interactive elements without visible text.
-- Use `.insert()` and `.remove()` for trait modification (not direct assignment).
-- Set `accessibilityViewIsModal = true` on custom overlay views to trap focus.
-- Post `.announcement` for transient status messages.
-- Post `.layoutChanged` with a target view for partial screen updates.
-- Post `.screenChanged` for full screen transitions.
-
-```swift
-// UIKit trait modification
-customButton.accessibilityTraits.insert(.button)
-customButton.accessibilityTraits.remove(.staticText)
-
-// Modal overlay
-overlayView.accessibilityViewIsModal = true
-```
+For custom UIKit views, expose meaningful elements, labels, values, traits, and actions; mutate traits with `insert`/`remove`; make custom overlays modal; and use the appropriate announcement, layout-changed, or screen-changed notification. Load [references/a11y-patterns.md](references/a11y-patterns.md) for complete UIKit examples.
 
 ## AppKit Accessibility Patterns
 
-AppKit accessibility uses `NSAccessibilityProtocol` and related role-specific protocols to describe accessible elements. Standard AppKit controls already provide much of this behavior; customize labels, values, roles, and actions only when the defaults are insufficient.
-
-- Prefer standard AppKit controls first — they already expose accessibility metadata and notifications.
-- For custom `NSView` subclasses, adopt the appropriate role-specific accessibility behavior and return the correct role, label, value, and actions.
-- Use `NSAccessibilityElement` for accessible items that are not backed by their own `NSView`.
-- Post `NSAccessibility` notifications when state changes need to be announced to assistive apps.
-
-```swift
-final class FavoriteToggleView: NSView {
-    var isFavorite = false {
-        didSet {
-            NSAccessibility.post(element: self, notification: .valueChanged)
-        }
-    }
-
-    override func isAccessibilityElement() -> Bool { true }
-    override func accessibilityRole() -> NSAccessibility.Role? { .button }
-    override func accessibilityLabel() -> String? { "Favorite" }
-    override func accessibilityValue() -> Any? { isFavorite ? "On" : "Off" }
-
-    override func accessibilityPerformPress() -> Bool {
-        isFavorite.toggle()
-        return true
-    }
-}
-```
-
-See [references/a11y-patterns.md](references/a11y-patterns.md) for AppKit examples including `NSAccessibilityElement` and announcement notifications.
+Prefer standard AppKit controls. For custom `NSView` or virtual elements, expose the correct `NSAccessibility` role, label, value, actions, and state-change notifications. Load [references/a11y-patterns.md](references/a11y-patterns.md) for `NSAccessibilityElement` and custom-control examples.
 
 ## Accessibility Custom Content
 
-See [references/a11y-patterns.md](references/a11y-patterns.md) for UIKit and AppKit accessibility patterns and custom content examples.
-
-```swift
-ProductRow(product: product)
-    .accessibilityCustomContent("Price", product.formattedPrice)
-    .accessibilityCustomContent("Rating", "\(product.rating) out of 5")
-    .accessibilityCustomContent(
-        "Availability",
-        product.inStock ? "In stock" : "Out of stock",
-        importance: .high  // .high reads automatically with the element
-    )
-```
+Use `.accessibilityCustomContent` for useful secondary facts without adding swipe stops; reserve high importance for content that should read automatically. See [references/a11y-patterns.md](references/a11y-patterns.md) for SwiftUI, UIKit, and AppKit examples.
 
 ## App Store Accessibility Nutrition Labels
 
@@ -356,7 +301,7 @@ Before recommending a claim, require evidence that users can complete all common
 
 ### Manual Testing
 
-- **Accessibility Inspector** (Xcode > Open Developer Tool): Audit views for missing labels, traits, and contrast issues. Run audits against the Simulator or connected device.
+- **Accessibility Inspector**: Audit labels, traits, and contrast against Simulator and devices.
 - **VoiceOver testing**: Enable in Settings > Accessibility > VoiceOver. Navigate every screen with swipe gestures.
 - **Voice Control testing**: Enable in Settings > Accessibility > Voice Control. Say both "Show Names" and "Show Numbers"; names verify speakable labels, while numbers verify every visible interactive target is reachable even when names are duplicated, missing, or awkward.
 - **Full Keyboard Access testing**: Enable in Settings > Accessibility > Keyboards > Full Keyboard Access. Tab through every screen and verify all interactive elements receive focus.
@@ -365,60 +310,19 @@ Before recommending a claim, require evidence that users can complete all common
 
 ### Automated Testing with XCTest
 
-Use `XCUIElement` accessibility attributes to write UI tests that verify accessibility properties:
-
-```swift
-func testProductRowAccessibility() throws {
-    let app = XCUIApplication()
-    app.launch()
-
-    let productCell = app.cells["product-organic-apples"]
-    XCTAssertTrue(productCell.exists)
-    XCTAssertTrue(productCell.isEnabled)
-
-    // Verify the label is set and meaningful
-    XCTAssertFalse(productCell.label.isEmpty)
-
-    // Verify a specific element has the expected label
-    let favoriteButton = productCell.buttons["Favorite"]
-    XCTAssertTrue(favoriteButton.exists)
-    XCTAssertTrue(favoriteButton.isEnabled)
-}
-```
-
-Key `XCUIElementAttributes` properties for accessibility verification: `label`, `identifier`, `value`, `isEnabled`, `hasFocus`, `isSelected`, `placeholderValue`, `title`.
-
-Test dismissal focus restoration:
-
-```swift
-func testSheetDismissReturnsFocus() throws {
-    let app = XCUIApplication()
-    app.launch()
-
-    let triggerButton = app.buttons["Open Settings"]
-    triggerButton.tap()
-
-    // Dismiss the sheet
-    let doneButton = app.buttons["Done"]
-    doneButton.tap()
-
-    // Verify focus returns to trigger (in accessibility-focused testing)
-    XCTAssertTrue(triggerButton.hasFocus)
-}
-```
+Use stable accessibility identifiers to locate `XCUIElement` values, then assert existence, enabled/selected state, meaningful labels/values, and `hasFocus` where the test environment exposes focus. Cover dismissal focus restoration, every modal exit path, and gesture alternatives. UI automation complements—not replaces—VoiceOver, Voice Control, Switch Control, keyboard, Dynamic Type, contrast, Reduce Motion, and Reduce Transparency testing. Load [references/a11y-patterns.md](references/a11y-patterns.md) for XCTest examples.
 
 ## Common Mistakes
 
-1. **Direct trait assignment**: UIKit trait mutation or incorrect SwiftUI trait APIs can overwrite existing behavior. In SwiftUI, use `.accessibilityAddTraits(.isButton)`.
-2. **Missing focus restoration**: Dismissing sheets without returning VoiceOver focus to the trigger element.
-3. **Ungrouped list rows**: Multiple text elements per row create excessive swipe stops. Use `.accessibilityElement(children: .combine)`.
-4. **Redundant trait in labels**: `.accessibilityLabel("Settings button")` reads as "Settings button, button." Omit the type.
-5. **Missing labels on icon-only buttons**: Every `Image`-only button MUST have `.accessibilityLabel`.
-6. **Ignoring Reduce Motion**: Always check `accessibilityReduceMotion` before movement animations.
-7. **Fixed font sizes**: `.font(.system(size: 16))` ignores Dynamic Type. Use `.font(.body)` or similar text styles.
-8. **Small tap targets**: Icons without `frame(minWidth: 44, minHeight: 44)` and `.contentShape()`.
-9. **Color as sole indicator**: Red/green for error/success without text or icon alternatives.
-10. **Missing `.isModal` on overlays**: Custom modals without `.accessibilityAddTraits(.isModal)` let VoiceOver escape.
+| Mistake | Fix |
+|---|---|
+| Trait assignment overwrites behavior | Insert/remove UIKit traits or use SwiftUI accessibility trait modifiers. |
+| Dismissal loses focus | Return accessibility focus to the trigger. |
+| Rows create excessive swipe stops | Group related children deliberately. |
+| Labels repeat control type or omit icon meaning | Use a concise, speakable action/name; traits announce type. |
+| Motion, text size, contrast, or transparency is fixed | Respond to the matching accessibility preference and adaptive text styles. |
+| Targets are small or color-only | Provide a 44×44 target plus text, shape, or icon semantics. |
+| Custom overlay is not modal | Expose modal semantics, escape action, and restoration. |
 
 ## Review Checklist
 

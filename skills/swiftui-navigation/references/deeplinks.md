@@ -33,16 +33,18 @@ final class RouterPath {
   var urlHandler: ((URL) -> OpenURLAction.Result)?
 
   func handle(url: URL) -> OpenURLAction.Result {
-    if isInternal(url) {
-      navigate(to: .status(id: url.lastPathComponent))
-      return .handled
+    guard let route = parseInternal(url), isAuthorized(route), destinationExists(route) else {
+      return urlHandler?(url) ?? .systemAction
     }
-    return urlHandler?(url) ?? .systemAction
+    path.append(route) // Commit only after every validation passes.
+    return .handled
   }
 
   func handleDeepLink(url: URL) -> OpenURLAction.Result {
-    // Resolve federated URLs, then navigate.
-    navigate(to: .status(id: url.lastPathComponent))
+    guard let route = parseInternal(url), isAuthorized(route), destinationExists(route) else {
+      return .discarded
+    }
+    path.append(route)
     return .handled
   }
 }
@@ -75,7 +77,8 @@ extension View {
 
 ## Pitfalls
 
-- Don’t assume the URL is internal; validate first.
+- Parse and validate before mutating any tab or navigation path. Invalid links
+  must leave current navigation unchanged.
 - Avoid blocking UI while resolving remote links; use `Task`.
 
 ## Universal Links

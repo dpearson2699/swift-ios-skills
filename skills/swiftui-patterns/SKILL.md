@@ -10,6 +10,7 @@ Modern SwiftUI patterns targeting iOS 26+ with Swift 6.3. Covers architecture, s
 ## Contents
 
 - [Architecture: Model-View (MV) Pattern](#architecture-model-view-mv-pattern)
+- [Workflow](#workflow)
 - [State Management](#state-management)
 - [View Ordering Convention](#view-ordering-convention)
 - [View Composition](#view-composition)
@@ -24,6 +25,16 @@ Modern SwiftUI patterns targeting iOS 26+ with Swift 6.3. Covers architecture, s
 - [References](#references)
 
 **Scope boundary:** This skill covers architecture, state ownership, composition, environment wiring, async loading, and related SwiftUI app structure patterns. Detailed navigation patterns are covered in the `swiftui-navigation` skill, including `NavigationStack`, `NavigationSplitView`, sheets, tabs, and deep-linking patterns. Detailed layout, container, and component patterns are covered in the `swiftui-layout-components` skill, including stacks, grids, lists, scroll view patterns, forms, controls, search UI with `.searchable`, overlays, and related layout components. Detailed animation choreography is covered in `swiftui-animation`. Liquid Glass adoption, custom glass controls, scroll edge effects, `.scrollEdgeEffectStyle`, and `.backgroundExtensionEffect` are covered in `swiftui-liquid-glass`.
+
+## Workflow
+
+1. Record the current state ownership, actions, side effects, navigation, and lifecycle behavior.
+2. Choose the smallest MV/state/composition change that preserves that contract.
+3. Build after each structural step; fix compiler and isolation errors before continuing.
+4. Render deterministic previews for loaded, loading, empty, and error states as applicable, including required environment dependencies.
+5. Exercise important interactions and side effects. If behavior changes, restore the fixture, fix the smallest boundary, and rerun the same build, preview, and interaction checks.
+
+Load [Behavior-Preserving View Refactoring](references/view-refactoring.md) for restructuring existing views and [Isolated Preview Construction](references/preview-isolation.md) for fixture and dependency patterns.
 
 ## Architecture: Model-View (MV) Pattern
 
@@ -286,12 +297,7 @@ Use `swift-concurrency` for cancellation handlers, debounce and clocks, `AsyncSe
 
 ## iOS 26+ New APIs
 
-- **`.scrollEdgeEffectStyle(.soft, for: .top)`** -- fading edge effect on scroll edges
-- **`.backgroundExtensionEffect()`** -- mirror/blur at safe area edges
-- **`@Animatable`** macro -- synthesizes `AnimatableData` conformance automatically (see `swiftui-animation` skill)
-- **`TextEditor(text: Binding<AttributedString>)`** -- rich text editing with attributed strings
-
-Keep these as routing reminders in this skill. For Liquid Glass visual treatment, scroll edge effects, glass controls, and availability gating, use `swiftui-liquid-glass`; for detailed animation APIs, use `swiftui-animation`.
+Route `.scrollEdgeEffectStyle`, `.backgroundExtensionEffect`, and glass controls to `swiftui-liquid-glass`; route `@Animatable` to `swiftui-animation`. `TextEditor(text: Binding<AttributedString>)` is the iOS 26 rich-text editing path. Keep availability checks beside code that adopts these APIs.
 
 Clipboard command modifiers are not iOS 26 defaults: `.copyable`, `.cuttable`, and command-based `.pasteDestination(for:action:validator:)` are macOS 13+ and iOS/iPadOS/Mac Catalyst 27 beta in current Apple docs. For iOS 26 targets, use `UIPasteboard` for custom clipboard commands, or use drag/drop and `ShareLink` for `Transferable` flows. See [references/platform-and-sharing.md](references/platform-and-sharing.md).
 
@@ -351,25 +357,7 @@ TextField("Search…", text: $query)
 10. Inline closures in body -- extract complex closures to methods
 11. `.sheet(isPresented:)` when state represents a model -- use `.sheet(item:)` instead
 12. **Using `AnyView` for routine branching** -- type erasure hides structure and can hurt performance or identity-sensitive transitions. Use `@ViewBuilder`, `Group`, or generics unless an API genuinely needs heterogeneous view storage. See [references/deprecated-migration.md](references/deprecated-migration.md)
-13. **Putting `@AppStorage` inside an `@Observable` class** -- `@AppStorage` is a SwiftUI `DynamicProperty`; it only triggers view updates when used directly in a `View`. Inside an `@Observable` class, observation tracking never sees the change. Keep `@AppStorage` in views, or read/write `UserDefaults` directly inside the `@Observable` class:
-
-```swift
-// Wrong -- @AppStorage is invisible to @Observable tracking
-@MainActor @Observable final class Settings {
-    @AppStorage("theme") var theme: String = "system" // view won't update
-}
-
-// Right -- UserDefaults read/write with a normal stored property
-@MainActor @Observable final class Settings {
-    var theme: String {
-        didSet { UserDefaults.standard.set(theme, forKey: "theme") }
-    }
-
-    init() {
-        theme = UserDefaults.standard.string(forKey: "theme") ?? "system"
-    }
-}
-```
+13. **Putting `@AppStorage` inside an `@Observable` class.** `@AppStorage` is a view `DynamicProperty`; keep it in a `View`, or expose a normal observed property backed by `UserDefaults` in the model.
 
 14. Hard-coding `spacing:` on every stack -- omit it to get adaptive platform spacing; only specify when the value is intentional
 15. Treating `.copyable`, `.cuttable`, or command-based `.pasteDestination(for:action:validator:)` as iOS 16/iOS 26 APIs -- they are macOS 13+ and iOS/iPadOS/Mac Catalyst 27 beta in current Apple docs. Use `UIPasteboard`, drag/drop, or `ShareLink` for iOS 26 targets.

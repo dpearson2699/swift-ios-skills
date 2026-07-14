@@ -44,6 +44,39 @@ Classify the request before loading references.
 Do not load every reference file by default. This skill is intentionally split
 for progressive disclosure; load only the files needed by the user's task.
 
+### Minimum Safe Keychain Write
+
+Use separate add, identity, and update dictionaries; handle every `OSStatus`:
+
+```swift
+func saveSecret(_ data: Data, account: String) throws {
+    let identity: [CFString: Any] = [
+        kSecClass: kSecClassGenericPassword,
+        kSecAttrService: "com.example.app",
+        kSecAttrAccount: account,
+    ]
+    var add = identity
+    add[kSecValueData] = data
+    add[kSecAttrAccessible] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+
+    switch SecItemAdd(add as CFDictionary, nil) {
+    case errSecSuccess:
+        return
+    case errSecDuplicateItem:
+        let status = SecItemUpdate(
+            identity as CFDictionary,
+            [kSecValueData: data] as CFDictionary
+        )
+        guard status == errSecSuccess else { throw KeychainError(status: status) }
+    case let status:
+        throw KeychainError(status: status)
+    }
+}
+```
+
+Load [keychain-fundamentals.md](references/keychain-fundamentals.md) for read,
+delete, access-control, locked-device, and test patterns.
+
 ## Reference Loading
 
 | If the task involves | Load |

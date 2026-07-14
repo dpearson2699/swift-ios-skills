@@ -185,10 +185,6 @@ actor AppAttestManager {
 }
 ```
 
-**Important:** Generate the key once per user account on a device, persist that
-account/device `keyId`, and keep the key count low. Generating unnecessary keys
-pollutes App Attest risk metrics.
-
 ## App Attest Attestation Flow
 
 Attestation proves that the key was generated on a genuine Apple device running

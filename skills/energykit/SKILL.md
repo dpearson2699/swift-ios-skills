@@ -8,7 +8,7 @@ description: "Query grid electricity forecasts and submit load events using Ener
 Provide grid electricity forecasts to help users choose when to use electricity.
 EnergyKit identifies times when grid electricity is relatively cleaner and,
 when cost information is available, less expensive. Apps use that guidance to
-shift or reduce managed device load. Targets Swift 6.3 / iOS 26+.
+shift or reduce managed device load.
 
 > **Beta-sensitive.** EnergyKit is new in iOS 26 and may change before GM.
 > Re-check current Apple documentation before relying on specific API details.
@@ -364,113 +364,22 @@ year. See [references/energykit-patterns.md](references/energykit-patterns.md) f
 
 ## Common Mistakes
 
-### DON'T: Forget the EnergyKit entitlement
-
-Without the entitlement, EnergyKit APIs can fail with permission errors such as
-`EnergyKitError.permissionDenied`. Treat the EnergyKit capability as setup, not
-as an implementation detail to discover after writing queries.
-
-### DON'T: Ignore unsupported regions
-
-EnergyKit is not available in all regions. Handle the `.unsupportedRegion`
-and `.guidanceUnavailable` errors.
-
-```swift
-// WRONG: Assume guidance is always available
-for try await guidance in service.guidance(using: query, at: venueID) {
-    updateUI(guidance)
-}
-
-// CORRECT: Handle region-specific errors
-do {
-    for try await guidance in service.guidance(using: query, at: venueID) {
-        updateUI(guidance)
-    }
-} catch let error as EnergyKitError {
-    switch error {
-    case .unsupportedRegion:
-        showUnsupportedRegionMessage()
-    case .guidanceUnavailable:
-        showGuidanceUnavailableMessage()
-    case .venueUnavailable:
-        showNoVenueMessage()
-    case .permissionDenied:
-        showPermissionDeniedMessage()
-    case .serviceUnavailable:
-        retryLater()
-    case .rateLimitExceeded:
-        backOff()
-    default:
-        break
-    }
-}
-```
-
-### DON'T: Discard the guidance token
-
-The `guidanceToken` links load events to the guidance that was in effect. Store
-the token returned from EnergyKit on the device that fetched it and pass that
-real token to load event submissions.
-
-```swift
-// WRONG: Ignore the guidance token
-for try await guidance in guidanceStream {
-    startCharging(followingGuidanceToken: UUID())  // fabricated token
-}
-
-// CORRECT: Store the token for load events
-for try await guidance in guidanceStream {
-    let token = guidance.guidanceToken
-    startCharging(followingGuidanceToken: token)
-}
-```
-
-### DON'T: Submit load events without a session lifecycle
-
-Always submit `.begin`, then `.active` updates, then `.end` events.
-
-```swift
-// WRONG: Only submit one event
-let event = ElectricVehicleLoadEvent(/* state: .active */)
-try await venue.submitEvents([event])
-
-// CORRECT: Full session lifecycle
-try await venue.submitEvents([beginEvent])
-// ... periodic active events ...
-try await venue.submitEvents([activeEvent])
-// ... when done ...
-try await venue.submitEvents([endEvent])
-```
-
-### DON'T: Query guidance without a venue
-
-EnergyKit requires a venue ID. List venues first and select the appropriate one.
-
-```swift
-// WRONG: Use a hardcoded UUID
-let fakeID = UUID()
-service.guidance(using: query, at: fakeID)  // Will fail
-
-// CORRECT: Discover venues first
-let venues = try await EnergyVenue.venues()
-guard let venue = venues.first else {
-    showNoVenueSetup()
-    return
-}
-let guidanceStream = service.guidance(using: query, at: venue.id)
-```
+| Mistake | Fix |
+|---|---|
+| Querying before capability setup | Verify the EnergyKit entitlement and handle `.permissionDenied`. |
+| Assuming every region has guidance | Handle unsupported-region, unavailable-venue/guidance, service, and rate-limit states. |
+| Fabricating or discarding the guidance token | Persist the real token on the requesting device and submit that token with its load events. |
+| Sending isolated load samples | Preserve `.begin → .active → .end` and Apple's event cadence. |
+| Using a hardcoded venue ID | Discover venues with `EnergyVenue.venues()` and select the intended venue. |
 
 ## Review Checklist
 
 - [ ] `com.apple.developer.energykit` entitlement added to the project
 - [ ] `EnergyKitError.unsupportedRegion` handled with user-facing message
 - [ ] `EnergyKitError.permissionDenied` handled gracefully
-- [ ] Guidance token stored and passed to load event submissions
-- [ ] No placeholder or fabricated guidance tokens are used in load events
-- [ ] The same EnergyKit-capable device/app that requested guidance submits the corresponding load events
+- [ ] Real guidance token stored and submitted by the same EnergyKit-capable device/app
 - [ ] Venues discovered via `EnergyVenue.venues()` before querying guidance
-- [ ] Load event sessions follow `.begin` -> `.active` -> `.end` lifecycle
-- [ ] EV/HVAC event cadence follows Apple guidance and events are batched when practical
+- [ ] Load event sessions follow `.begin` -> `.active` -> `.end`, with Apple cadence and practical batching
 - [ ] `ElectricityGuidance.Value.rating` interpreted correctly (lower is better)
 - [ ] `SuggestedAction` matches the device type (`.shift` for EV, `.reduce` for HVAC)
 - [ ] Insight queries use appropriate minimum ranges for their granularity

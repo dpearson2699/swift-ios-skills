@@ -1,6 +1,6 @@
 ---
 name: swiftui-animation
-description: "Implement, review, or improve SwiftUI animations and transitions. Use when adding explicit animations with withAnimation, configuring implicit animations with .animation(_:body:) or .animation(_:value:), configuring spring animations (.smooth, .snappy, .bouncy), building phase or keyframe animations with PhaseAnimator/KeyframeAnimator, creating hero transitions with matchedGeometryEffect or matchedTransitionSource, adding SF Symbol effects (iOS 17 bounce, pulse, variableColor, scale, appear, disappear, replace; iOS 18 breathe, rotate, wiggle), implementing custom Transition or CustomAnimation types, or ensuring animations respect accessibilityReduceMotion."
+description: "Implement, diagnose, or review SwiftUI motion using explicit and scoped implicit animations, springs, transitions, PhaseAnimator, KeyframeAnimator, matched geometry or navigation zoom, SF Symbol effects, and custom Animation types. Use when views should animate on state changes, insertion, removal, navigation, or multi-step choreography, or when motion must respect Reduce Motion and Swift concurrency."
 ---
 
 # SwiftUI Animation (iOS 26+)
@@ -47,26 +47,15 @@ correct timing, transitions, and accessibility handling using Swift 6.3 patterns
 ### Step 2: Choose the animation curve
 
 ```swift
-// Timing curves
-.linear                              // constant speed
-.easeIn(duration: 0.3)              // slow start
-.easeOut(duration: 0.3)             // slow end
-.easeInOut(duration: 0.3)           // slow start and end
-.timingCurve(.bezier(startControlPoint: .zero, endControlPoint: .init(x: 1, y: 1)), duration: 0.3)
-
-// Spring presets (preferred for natural motion)
-.smooth                              // no bounce, fluid
-.smooth(duration: 0.5, extraBounce: 0.0)
-.snappy                              // small bounce, responsive
-.snappy(duration: 0.4, extraBounce: 0.1)
-.bouncy                              // visible bounce, playful
-.bouncy(duration: 0.5, extraBounce: 0.2)
-
-// Custom spring
-.spring(duration: 0.5, bounce: 0.3, blendDuration: 0.0)
-.spring(Spring(duration: 0.6, bounce: 0.2), blendDuration: 0.0)
-.interactiveSpring(response: 0.15, dampingFraction: 0.86)
+.easeInOut(duration: 0.3)       // mechanical timing
+.smooth                         // fluid, no bounce
+.snappy                         // responsive, small bounce
+.bouncy                         // playful, visible bounce
+.spring(duration: 0.5, bounce: 0.3)
 ```
+
+Use [the advanced catalog](references/animation-advanced.md#spring-type-all-initializer-variants)
+when presets do not express the intended motion.
 
 ### Step 3: Apply and verify
 
@@ -110,23 +99,15 @@ Circle()
 
 ## Spring Type (iOS 17+)
 
-Four initializer forms for different mental models.
+Prefer the perceptual form or a preset. Load the advanced reference only when
+physical, response-based, or settling parameters are required.
 
 ```swift
-// Perceptual (preferred)
 Spring(duration: 0.5, bounce: 0.3)
-
-// Physical
-Spring(mass: 1.0, stiffness: 100.0, damping: 10.0)
-
-// Response-based
-Spring(response: 0.5, dampingRatio: 0.7)
-
-// Settling-based
-Spring(settlingDuration: 1.0, dampingRatio: 0.8)
+Spring.smooth
+Spring.snappy
+Spring.bouncy
 ```
-
-Three presets mirror Animation presets: `.smooth`, `.snappy`, `.bouncy`.
 
 ## PhaseAnimator (iOS 17+)
 
@@ -324,10 +305,8 @@ if showBanner {
 }
 ```
 
-Built-in types: `.opacity`, `.slide`, `.scale`, `.scale(_:anchor:)`,
-`.move(edge:)`, `.push(from:)`, `.offset(x:y:)`, `.identity`,
-`.blurReplace`, `.blurReplace(_:)`, `.symbolEffect`,
-`.symbolEffect(_:options:)`.
+See [All Transition Types](references/animation-advanced.md#all-transition-types-ios-17)
+for the built-in catalog and custom `Transition` examples.
 
 Asymmetric transitions:
 
@@ -385,38 +364,12 @@ Image(systemName: "speaker.wave.3.fill")
     )
 ```
 
-Availability: iOS 17+ for `.bounce`, `.pulse`, `.variableColor`, `.scale`,
-`.appear`, `.disappear`, `.replace`; iOS 18+ for `.breathe`, `.rotate`,
-`.wiggle`.
-
 Scope: `.byLayer`, `.wholeSymbol`. Direction varies per effect.
 
 ## Symbol Rendering Modes
 
-Control how SF Symbol layers are colored with `.symbolRenderingMode(_:)`.
-
-| Mode | Effect | When to use |
-|------|--------|-------------|
-| `.monochrome` | Single color applied uniformly (default) | Toolbars, simple icons matching text |
-| `.hierarchical` | Single color with opacity layers for depth | Subtle depth without multiple colors |
-| `.multicolor` | System-defined fixed colors per layer | Weather, file types — Apple's intended palette |
-| `.palette` | Custom colors per layer via `.foregroundStyle` | Brand colors, custom multi-color icons |
-
-```swift
-// Hierarchical — single tint, opacity layers for depth
-Image(systemName: "speaker.wave.3.fill")
-    .symbolRenderingMode(.hierarchical)
-    .foregroundStyle(.blue)
-
-// Palette — custom color per layer
-Image(systemName: "person.crop.circle.badge.plus")
-    .symbolRenderingMode(.palette)
-    .foregroundStyle(.blue, .green)
-
-// Multicolor — system-defined colors
-Image(systemName: "cloud.sun.rain.fill")
-    .symbolRenderingMode(.multicolor)
-```
+Choose `.monochrome`, `.hierarchical`, `.multicolor`, or `.palette` with
+`.symbolRenderingMode(_:)`; use `.foregroundStyle` to supply palette colors.
 
 **Variable symbols:** use `Image(systemName:variableValue:)` (iOS 16+) for percentage fill. Use `.symbolVariableValueMode(_:)` (iOS 26+) to choose `.draw` or `.color`.
 

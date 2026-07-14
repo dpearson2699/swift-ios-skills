@@ -7,8 +7,7 @@ description: "Transcribe speech to text using Apple's Speech framework. Use when
 
 Transcribe live and pre-recorded audio to text using Apple's Speech framework.
 Covers `SpeechAnalyzer` / `SpeechTranscriber` (iOS 26+) and
-`SFSpeechRecognizer` (iOS 10+). Targets Swift 6.3 / iOS 26+ while preserving
-fallback guidance for apps that support older OS versions.
+`SFSpeechRecognizer` (iOS 10+) fallback guidance.
 
 **Scope boundary:** Use this skill for speech-to-text recognition, speech
 authorization, microphone capture plumbing, and result handling. Hand off text
@@ -269,22 +268,7 @@ state across tasks.
 
 ### Partial vs final results
 
-```swift
-let request = SFSpeechAudioBufferRecognitionRequest()
-request.shouldReportPartialResults = true  // default is true
-
-recognizer.recognitionTask(with: request) { result, error in
-    guard let result else { return }
-
-    if result.isFinal {
-        // Final transcription — recognition is complete
-        let final = result.bestTranscription.formattedString
-    } else {
-        // Partial result — may change as more audio is processed
-        let partial = result.bestTranscription.formattedString
-    }
-}
-```
+With `shouldReportPartialResults`, replace the displayed partial transcript until `SFSpeechRecognitionResult.isFinal` commits it. This is separate from `SpeechTranscriber.Result.isFinal`, whose volatile attributed range must be replaced by the final result for that range. The live example and [references/speechanalyzer-patterns.md](references/speechanalyzer-patterns.md) contain the canonical loops.
 
 ### Accessing alternative transcriptions and confidence
 
@@ -322,145 +306,18 @@ request.contextualStrings = ["SwiftUI", "Xcode", "CloudKit"]
 
 ## Common Mistakes
 
-### Not requesting both speech and microphone authorization
+| Mistake | Fix |
+|---|---|
+| Live audio requests only speech authorization | Require both speech and microphone permission. |
+| Recognizer availability is checked once | Observe delegate availability changes and model loss of service. |
+| Final/error/rollover paths perform different cleanup | Use one `stopTranscribing()` owner for engine stop, tap removal, `endAudio`, and task cancellation. |
+| On-device mode is forced for every locale | Check `supportsOnDeviceRecognition` and provide a fallback. |
+| One `SFSpeechRecognizer` task is used for long-form capture | Prefer SpeechAnalyzer on iOS 26+ or roll bounded segments while preserving committed transcript. |
+| Finishing analyzer input is treated as session completion | Explicitly finalize through the last sample or cancel-and-finish. |
+| Volatile SpeechAnalyzer results are appended | Replace the volatile range until a final result commits it. |
+| A second recognition task starts before the first ends | Cancel/finish the active task and complete cleanup before replacement. |
 
-```swift
-// ❌ DON'T: Only request speech authorization for live audio
-SFSpeechRecognizer.requestAuthorization { status in
-    // Missing microphone permission — audio engine will fail
-    self.startRecording()
-}
-
-// ✅ DO: Request both permissions before recording
-SFSpeechRecognizer.requestAuthorization { status in
-    guard status == .authorized else { return }
-    AVAudioSession.sharedInstance().requestRecordPermission { granted in
-        guard granted else { return }
-        self.startRecording()
-    }
-}
-```
-
-### Not handling availability changes
-
-```swift
-// ❌ DON'T: Assume recognizer stays available after initial check
-let recognizer = SFSpeechRecognizer()!
-// Recognition may fail if network drops or locale changes
-
-// ✅ DO: Monitor availability via delegate
-recognizer.delegate = self
-func speechRecognizer(
-    _ speechRecognizer: SFSpeechRecognizer,
-    availabilityDidChange available: Bool
-) {
-    recordButton.isEnabled = available
-}
-```
-
-### Not stopping the audio engine when recognition ends
-
-```swift
-// ❌ DON'T: Leave audio engine running after recognition finishes
-recognizer.recognitionTask(with: request) { result, error in
-    if result?.isFinal == true {
-        // Audio engine still running, wasting resources and battery
-    }
-}
-
-// ✅ DO: Clean up all audio resources
-recognizer.recognitionTask(with: request) { result, error in
-    if result?.isFinal == true || error != nil {
-        self.audioEngine.stop()
-        self.audioEngine.inputNode.removeTap(onBus: 0)
-        self.recognitionRequest?.endAudio()
-        self.recognitionRequest = nil
-    }
-}
-```
-
-### Assuming on-device recognition is available for all locales
-
-```swift
-// ❌ DON'T: Force on-device without checking support
-let request = SFSpeechAudioBufferRecognitionRequest()
-request.requiresOnDeviceRecognition = true // Ignored unless the recognizer supports it
-
-// ✅ DO: Check support before requiring on-device
-if recognizer.supportsOnDeviceRecognition {
-    request.requiresOnDeviceRecognition = true
-} else {
-    // Fall back to server-based or inform user
-}
-```
-
-### Not handling the one-minute recognition limit
-
-```swift
-// ❌ DON'T: Start one long continuous recognition session
-func startRecording() {
-    // SFSpeechRecognizer tasks can be cut off after about 60 seconds
-}
-
-// ✅ DO: roll the segment before the limit and let cleanup end audio once
-func scheduleRecognitionRollover() {
-    recognitionTimer = Timer.scheduledTimer(withTimeInterval: 55, repeats: false) { [weak self] _ in
-        self?.commitLatestPartialText()
-        self?.stopTranscribing()     // owns endAudio(), tap removal, and task cancellation
-        try? self?.startTranscribing()
-    }
-}
-```
-`SFSpeechRecognitionTask` exposes `finish()`, `cancel()`, `state`, and `error`;
-do not invent task properties such as `recognitionTask` to restart work. Keep
-the active `SFSpeechAudioBufferRecognitionRequest` in your manager and call
-`endAudio()` from one cleanup path only.
-
-### Treating SpeechAnalyzer input completion as session completion
-
-```swift
-// ❌ DON'T: Only finish the AsyncStream and expect result streams to close
-inputBuilder.finish()
-
-// ✅ DO: explicitly finish or cancel the analyzer session
-let lastSampleTime = try await analyzer.analyzeSequence(inputSequence)
-if let lastSampleTime {
-    try await analyzer.finalizeAndFinish(through: lastSampleTime)
-} else {
-    try analyzer.cancelAndFinishNow()
-}
-```
-
-### Duplicating volatile SpeechAnalyzer results
-
-```swift
-// ✅ Replace volatile text with the finalized result for the same audio range
-for try await result in transcriber.results {
-    if result.isFinal {
-        volatileTranscript = AttributedString()
-        finalizedTranscript.append(result.text)
-    } else {
-        volatileTranscript = result.text
-    }
-}
-```
-
-### Creating multiple simultaneous recognition tasks
-
-```swift
-// ❌ DON'T: Start a new task without canceling the previous one
-func startRecording() {
-    recognitionTask = recognizer.recognitionTask(with: request) { ... }
-    // Previous task is still running — undefined behavior
-}
-
-// ✅ DO: Cancel existing task before creating a new one
-func startRecording() {
-    recognitionTask?.cancel()
-    recognitionTask = nil
-    recognitionTask = recognizer.recognitionTask(with: request) { ... }
-}
-```
+Load [references/speechanalyzer-patterns.md](references/speechanalyzer-patterns.md) for complete analyzer finalization and volatile-result code.
 
 ## Review Checklist
 

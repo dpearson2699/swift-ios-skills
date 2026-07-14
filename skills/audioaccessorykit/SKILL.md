@@ -113,38 +113,20 @@ the correct device based on placement and connected sources.
 
 ### Enabling Audio Switching
 
-Declare the `.audioSwitching` capability in the registration configuration:
-
-```swift
-let configuration = AccessoryControlDevice.Configuration(
-    deviceCapabilities: [.audioSwitching]
-)
-
-try await AccessoryControlDevice.register(accessory, configuration)
-```
-
-For Apple's automatic switching workflow, include both `.audioSwitching` and
-`.placement` when the accessory can report placement:
-
-```swift
-let configuration = AccessoryControlDevice.Configuration(
-    devicePlacement: .offHead,
-    deviceCapabilities: [.audioSwitching, .placement]
-)
-
-try await AccessoryControlDevice.register(accessory, configuration)
-```
+Declare `.audioSwitching` during the canonical registration flow above. Include
+`.placement` and an initial placement only when the accessory can report ongoing
+placement changes.
 
 ### Capabilities
 
-`AccessoryControlDevice.Capabilities` is an option set with two members:
+Automatic switching commonly uses these `AccessoryControlDevice.Capabilities`:
 
 | Capability | Purpose |
 |---|---|
 | `.audioSwitching` | Device supports automatic audio switching |
 | `.placement` | Device can report its physical placement |
 
-Both capabilities can be combined. Do not declare `.placement` unless the
+Combine capabilities as needed. Do not declare `.placement` unless the
 accessory can keep the system updated with real placement state.
 
 ## Device Placement
@@ -167,12 +149,10 @@ position change.
 ### Updating Placement
 
 ```swift
-let device = try AccessoryControlDevice.current(for: accessory)
-var config = device.configuration
-
 config.devicePlacement = .inEar
-try await device.update(config)
 ```
+
+Apply this mutation within the canonical current→copy→update sequence above.
 
 Common transitions:
 
@@ -191,24 +171,20 @@ the system route audio from the appropriate source.
 Provide the Bluetooth address of connected devices as `Data`:
 
 ```swift
-let device = try AccessoryControlDevice.current(for: accessory)
-var config = device.configuration
-
 let primaryBTAddress = Data([0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC])
 config.primaryAudioSourceDeviceIdentifier = primaryBTAddress
 
 let secondaryBTAddress = Data([0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45])
 config.secondaryAudioSourceDeviceIdentifier = secondaryBTAddress
-
-try await device.update(config)
 ```
 
 Update these identifiers when the Bluetooth connection state changes (new
-device connects, existing device disconnects).
+device connects, existing device disconnects), then call the canonical
+`update(_:)` sequence.
 
 ### Configuration Properties
 
-`AccessoryControlDevice.Configuration` contains all configurable state:
+Automatic switching uses these configuration fields:
 
 | Property | Type | Purpose |
 |---|---|---|
@@ -304,55 +280,17 @@ do {
 
 ### DON'T: Register before pairing with AccessorySetupKit
 
-```swift
-// WRONG -- no ASAccessory from a completed AccessorySetupKit pairing
-try await AccessoryControlDevice.register(unknownAccessory, configuration)
-
-// CORRECT -- use the ASAccessory from a completed pairing session
-session.activate(on: .main) { event in
-    if event.eventType == .accessoryAdded, let accessory = event.accessory {
-        Task {
-            let configuration = AccessoryControlDevice.Configuration(
-                deviceCapabilities: [.audioSwitching]
-            )
-            try await AccessoryControlDevice.register(accessory, configuration)
-        }
-    }
-}
-```
+Register only the `ASAccessory` returned by a completed AccessorySetupKit pairing.
 
 ### DON'T: Declare placement capability without updating placement
 
-```swift
-// WRONG -- registers placement but never updates it
-let registration = AccessoryControlDevice.Configuration(
-    deviceCapabilities: [.audioSwitching, .placement]
-)
-try await AccessoryControlDevice.register(accessory, registration)
-// System never receives placement data, reducing switching accuracy
-
-// CORRECT -- extension updates placement when state changes
-let device = try AccessoryControlDevice.current(for: accessory)
-var config = device.configuration
-config.devicePlacement = .offHead
-try await device.update(config)
-```
+If registration declares `.placement`, the extension must update placement on
+every detected transition using the canonical update sequence.
 
 ### DON'T: Ignore connection state changes for multi-device accessories
 
-```swift
-// WRONG -- set audio source identifiers once and never update
-config.primaryAudioSourceDeviceIdentifier = someAddress
-try await device.update(config)
-// Device disconnects, but system still thinks it's the primary source
-
-// CORRECT -- update identifiers when connections change
-func onDeviceDisconnected() {
-    var config = device.configuration
-    config.primaryAudioSourceDeviceIdentifier = nil
-    Task { try await device.update(config) }
-}
-```
+Clear or replace primary and secondary source identifiers whenever Bluetooth
+connections change; stale identifiers reduce switching accuracy.
 
 ### DON'T: Forget to handle the invalidated error
 
@@ -390,9 +328,9 @@ do {
 - [AudioAccessoryKit framework](https://sosumi.ai/documentation/audioaccessorykit)
 - [Supporting automatic audio switching](https://sosumi.ai/documentation/audioaccessorykit/supporting-automatic-audio-switching)
 - [AccessoryControlDevice](https://sosumi.ai/documentation/audioaccessorykit/accessorycontroldevice)
-- [AccessoryControlDevice.register(_:_:)](<https://sosumi.ai/documentation/audioaccessorykit/accessorycontroldevice/register(_:_:)>)
-- [AccessoryControlDevice.current(for:)](<https://sosumi.ai/documentation/audioaccessorykit/accessorycontroldevice/current(for:)>)
-- [AccessoryControlDevice.update(_:)](<https://sosumi.ai/documentation/audioaccessorykit/accessorycontroldevice/update(_:)>)
+- [AccessoryControlDevice registration](https://sosumi.ai/documentation/audioaccessorykit/accessorycontroldevice/register%28_%3A_%3A%29)
+- [AccessoryControlDevice lookup](https://sosumi.ai/documentation/audioaccessorykit/accessorycontroldevice/current%28for%3A%29)
+- [AccessoryControlDevice update](https://sosumi.ai/documentation/audioaccessorykit/accessorycontroldevice/update%28_%3A%29)
 - [AccessoryControlDevice.Configuration](https://sosumi.ai/documentation/audioaccessorykit/accessorycontroldevice/configuration-swift.struct)
 - [AccessoryControlDevice.Capabilities](https://sosumi.ai/documentation/audioaccessorykit/accessorycontroldevice/capabilities)
 - [AccessoryControlDevice.Placement](https://sosumi.ai/documentation/audioaccessorykit/accessorycontroldevice/placement)

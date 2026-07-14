@@ -5,10 +5,9 @@ description: "Build, review, or improve networking code in iOS/macOS apps using 
 
 # iOS Networking
 
-Modern networking patterns for iOS 26+ using URLSession with async/await and
-structured concurrency. All examples target Swift 6.3. No third-party
-dependencies required -- URLSession covers the vast majority of networking
-needs.
+Use URLSession with async/await and structured concurrency for ordinary HTTP,
+REST, uploads, downloads, and streaming. Use Network.framework for lower-level
+protocols and delegate/task APIs for durable background transfers.
 
 ## Contents
 
@@ -29,6 +28,12 @@ URLSession gained native async/await overloads in iOS 15. Prefer these for
 foreground data, upload, download, and streaming work. Background URLSession
 transfers are the main exception: they still use task/delegate APIs so the
 system can deliver events after suspension or relaunch.
+
+Validate networking policy locally with `URLProtocol` fixtures for valid 2xx,
+malformed 2xx, one-time 401 refresh, bounded 429/5xx retry, timeout/offline,
+cancellation, and nonretryable 4xx. Inspect headers, status, and error
+classification; fix the policy and rerun. Retry only safe/idempotent or
+explicitly replayable requests, and never loop token refresh.
 
 ### Data Requests
 
@@ -366,52 +371,20 @@ async throwing APIs; see [references/network-framework.md#quic-multiplexed-strea
 
 ## Configuring URLSession
 
-Create a configured session for production code. `URLSession.shared` is
-acceptable only for simple, one-off requests.
-
-```swift
-let configuration = URLSessionConfiguration.default
-configuration.timeoutIntervalForRequest = 30
-configuration.timeoutIntervalForResource = 300
-configuration.waitsForConnectivity = true
-configuration.requestCachePolicy = .returnCacheDataElseLoad
-configuration.httpAdditionalHeaders = [
-    "Accept": "application/json",
-    "Accept-Language": Locale.preferredLanguages.first ?? "en"
-]
-
-let session = URLSession(configuration: configuration)
-```
-
-`waitsForConnectivity = true` is valuable -- it makes the session wait for
-a network path instead of failing immediately when offline. Combine with
-`urlSession(_:taskIsWaitingForConnectivity:)` delegate callback for UI
-feedback.
+Inject a configured session when production code needs timeouts, caching,
+connectivity waiting, data-cost policy, authentication challenges, redirects,
+metrics, or background delegates. Use `URLSession.shared` only for simple
+one-off work. See [URLSession patterns](references/urlsession-patterns.md) for
+the full configuration and test setup.
 
 ## App Transport Security (ATS)
 
-ATS enforces HTTPS for all connections by default. Do not disable it.
-ATS is URL Loading System policy, so it covers `URLSession` rather than making
-lower-level `Network.framework` connections secure automatically. When using
-Network.framework, configure secure TLS parameters and trust handling correctly
-for that protocol stack.
-
-Use domain-specific ATS exceptions only as a last resort.
-
-**Rules:**
-- Never set `NSAllowsArbitraryLoads` to `true` in production unless there is no narrower option.
-- ATS exceptions require justification and may trigger additional App Store review.
-- Use exception domains only for third-party servers you cannot upgrade to HTTPS.
-- `NSAllowsLocalNetworking` is acceptable for local device communication (Bonjour, IoT).
-- Prefer ATS `NSPinnedDomains` for declarative pinning when possible. Raw bytes
-  from `SecKeyCopyExternalRepresentation` are not sufficient for SPKI pinning;
-  correct SPKI pinning hashes Subject Public Key Info and belongs in `swift-security`.
+ATS makes HTTPS the URL Loading System default. Do not enable blanket arbitrary
+loads; use the narrowest justified domain/local-network exception. Configure TLS
+explicitly for Network.framework. Keep deep trust and SPKI pinning design in
+`swift-security`.
 
 ## Common Mistakes
-
-**DON'T:** Use `URLSession.shared` with custom configuration needs.
-**DO:** Create a configured `URLSession` with appropriate timeouts, caching,
-and delegate for production code.
 
 **DON'T:** Force-unwrap `URL(string:)` with dynamic input.
 **DO:** Use `URL(string:)` with proper error handling. Force-unwrap is
@@ -436,18 +409,8 @@ libraries for genuinely missing features (e.g., image caching).
 **DO:** Use `URLProtocol` subclass for transport-level mocking, or use
 protocol-based clients that accept a test double.
 
-**DON'T:** Use `data(for:)` for large file downloads.
-**DO:** Use `download(for:)` which streams to disk and avoids memory spikes.
-
 **DON'T:** Fire network requests from `body` or view initializers.
 **DO:** Use `.task` or `.task(id:)` to trigger network calls.
-
-**DON'T:** Hardcode authentication tokens in requests.
-**DO:** Inject tokens via middleware so they are centralized and refreshable.
-
-**DON'T:** Ignore HTTP status codes and decode blindly.
-**DO:** Validate status codes before decoding. A 200 with invalid JSON and
-a 500 with an error body require different handling.
 
 ## Review Checklist
 

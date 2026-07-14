@@ -247,74 +247,17 @@ Omitting a required key causes a runtime crash when the permission dialog would 
 
 ## Camera Capture Basics
 
-Manage camera sessions in a dedicated `@Observable` model. The representable view only displays the preview. See [references/camera-capture.md](references/camera-capture.md) for complete patterns.
+Own each capture session in a dedicated controller and serialize configuration, `startRunning()`, and `stopRunning()` on the same non-main executor. Never mix main-actor configuration with detached start/stop tasks: `beginConfiguration()`/`commitConfiguration()` and session state changes must not race. The representable view only displays the preview.
 
 ### Minimal Camera Manager
 
-```swift
-import AVFoundation
+Load [Camera Capture](references/camera-capture.md) for the serialized-controller pattern, photo/video delegates, focus, torch, orientation, and scanning. The critical lifecycle is:
 
-@available(iOS 17.0, *)
-@Observable
-@MainActor
-final class CameraManager {
-    let session = AVCaptureSession()
-    private let photoOutput = AVCapturePhotoOutput()
-    private var currentDevice: AVCaptureDevice?
-
-    var isRunning = false
-    var capturedImage: Data?
-
-    func configure() async {
-        guard await requestCameraAccess() else { return }
-
-        session.beginConfiguration()
-        session.sessionPreset = .photo
-
-        // Add camera input
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera,
-                                                    for: .video,
-                                                    position: .back) else { return }
-        currentDevice = device
-
-        guard let input = try? AVCaptureDeviceInput(device: device),
-              session.canAddInput(input) else { return }
-        session.addInput(input)
-
-        // Add photo output
-        guard session.canAddOutput(photoOutput) else { return }
-        session.addOutput(photoOutput)
-
-        session.commitConfiguration()
-    }
-
-    func start() {
-        guard !session.isRunning else { return }
-        Task.detached { [session] in
-            session.startRunning()
-        }
-        isRunning = true
-    }
-
-    func stop() {
-        guard session.isRunning else { return }
-        Task.detached { [session] in
-            session.stopRunning()
-        }
-        isRunning = false
-    }
-
-    private func requestCameraAccess() async -> Bool {
-        let status = AVCaptureDevice.authorizationStatus(for: .video)
-        if status == .notDetermined {
-            return await AVCaptureDevice.requestAccess(for: .video)
-        }
-        return status == .authorized
-    }
-}
-```
-
-Start and stop `AVCaptureSession` on a background queue. The `startRunning()` and `stopRunning()` methods are synchronous and block the calling thread.
+1. Request access outside the session configuration transaction.
+2. On the capture executor, call `beginConfiguration()` and immediately install `defer { commitConfiguration() }` so every early exit balances the transaction.
+3. Add inputs and outputs only after `canAddInput`/`canAddOutput` checks.
+4. Start or stop on that same executor, then publish UI state on the main actor only after the synchronous call returns.
+5. On failure, stop, restore a fresh session fixture, fix the configuration, and rerun authorization, background/foreground, interruption, and capture checks.
 
 ### Camera Preview in SwiftUI
 
@@ -474,7 +417,7 @@ Use `.original` for photos and artwork. Use `.template` for icons that should ad
 **DO:** Check `AVCaptureDevice.authorizationStatus(for: .video)` and handle `.denied`/`.restricted`.
 
 **DON'T:** Call `session.startRunning()` on the main thread.
-**DO:** Dispatch to a background thread with `Task.detached` or a dedicated serial queue.
+**DO:** Run it on the same dedicated serial executor that owns configuration and stop operations.
 *Why:* `startRunning()` is a synchronous blocking call that can take hundreds of milliseconds while the hardware initializes.
 
 **DON'T:** Create `AVCaptureSession` inside a `UIViewRepresentable`.

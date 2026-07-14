@@ -436,13 +436,12 @@ escape, and no lock is held across `await`.
    use the `.task` view modifier.
 7. **Retain cycles in Tasks.** Use `[weak self]` when capturing `self` in
    long-lived stored tasks.
-8. **Semaphores in async context.** `DispatchSemaphore.wait()` in async code
-   will deadlock. Use structured concurrency instead.
+8. **Semaphores in async context.** `DispatchSemaphore.wait()` can block a cooperative executor thread and can deadlock when the signaller needs the blocked executor. Use an async primitive or structured concurrency.
 9. **Split isolation.** Mixing `@MainActor` and `nonisolated` properties in one
    type. Isolate the entire type consistently.
 10. **MainActor.run instead of static isolation.** Prefer `@MainActor func`
     over `await MainActor.run { }`.
-11. **Using GCD APIs.** Never use DispatchQueue, DispatchGroup, DispatchSemaphore, or any GCD API. Use async/await, actors, and TaskGroups instead. GCD has no data-race safety guarantees.
+11. **Using GCD for new async orchestration by default.** Prefer async/await, actors, and task groups. Keep dispatch queues where an API requires a queue, for custom executors, or during bounded legacy interop; document the isolation boundary instead of claiming GCD is universally forbidden.
 
 ## Review Checklist
 

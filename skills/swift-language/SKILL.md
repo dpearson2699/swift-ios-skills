@@ -5,8 +5,10 @@ description: "Apply modern Swift language patterns and idioms for non-concurrenc
 
 # Swift Language Patterns
 
-Core Swift language features and modern syntax patterns targeting Swift 6.3. For helper modernization, preserve behavior and evaluation order while preferring `guard` preconditions, typed throws for one local error enum, `count(where:)`, and direct if/switch expression returns. Covers language constructs, type system features, basic Codable,
-string and collection APIs, basic formatting, C interop (`@c`), module disambiguation (`ModuleName::symbol`), and performance attributes (`@specialized`, `@inline(always)`). For `@c` corrections, call `UnsafeBufferPointer` a Swift struct/value wrapper and enumerate invalid Swift-only signature types: `String`, `Array`, closures, generic placeholders. Route deeper Codable/API decoding to `swift-codable`, detailed formatting/localization to `swift-formatstyle`, API naming to `swift-api-design-guidelines`, concurrency to `swift-concurrency`, and SwiftUI state/view work to `swiftui-patterns`.
+Apply current Swift language syntax without changing behavior or evaluation order.
+Route deep decoding to `swift-codable`, formatting to `swift-formatstyle`, naming
+to `swift-api-design-guidelines`, concurrency to `swift-concurrency`, and SwiftUI
+state/view work to `swiftui-patterns`.
 
 ## Contents
 
@@ -27,6 +29,10 @@ string and collection APIs, basic formatting, C interop (`@c`), module disambigu
 - [References](#references)
 
 ## If/Switch Expressions
+
+For modernization, pin current behavior and evaluation order, make one semantic
+rewrite, compile the affected module, and run focused fixtures/tests. Fix any
+change before continuing; repeat until behavior is preserved.
 
 Swift 5.9+ allows `if` and `switch` as expressions that return values. Use them
 to assign, return, or initialize directly.
@@ -301,81 +307,10 @@ let priceRegex = Regex {
 
 ## Codable Best Practices
 
-### Custom CodingKeys
-
-Rename keys without writing a custom decoder:
-
-```swift
-struct User: Codable {
-    let id: Int
-    let displayName: String
-    let avatarURL: URL
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case displayName = "display_name"
-        case avatarURL = "avatar_url"
-    }
-}
-```
-
-### Custom Decoding
-
-Handle mismatched types, defaults, and transformations:
-
-```swift
-struct Item: Decodable {
-    let name: String
-    let quantity: Int
-    let isActive: Bool
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        name = try container.decode(String.self, forKey: .name)
-        quantity = try container.decodeIfPresent(Int.self, forKey: .quantity) ?? 0
-        if let boolValue = try? container.decode(Bool.self, forKey: .isActive) {
-            isActive = boolValue
-        } else {
-            isActive = (try container.decode(String.self, forKey: .isActive)).lowercased() == "true"
-        }
-    }
-    enum CodingKeys: String, CodingKey { case name, quantity; case isActive = "is_active" }
-}
-```
-
-### Nested Containers
-
-Flatten nested JSON into a flat Swift struct:
-
-```swift
-// JSON: { "id": 1, "metadata": { "created_at": "...", "tags": [...] } }
-struct Record: Decodable {
-    let id: Int
-    let createdAt: String
-    let tags: [String]
-
-    enum CodingKeys: String, CodingKey {
-        case id, metadata
-    }
-
-    enum MetadataKeys: String, CodingKey {
-        case createdAt = "created_at"
-        case tags
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(Int.self, forKey: .id)
-        let metadata = try container.nestedContainer(
-            keyedBy: MetadataKeys.self, forKey: .metadata)
-        createdAt = try metadata.decode(String.self, forKey: .createdAt)
-        tags = try metadata.decode([String].self, forKey: .tags)
-    }
-}
-```
-
-See [references/swift-patterns-extended.md](references/swift-patterns-extended.md) for additional Codable patterns
-(enums with associated values, date strategies, unkeyed containers).
+Use `CodingKeys` for simple renames and custom decoding only for real payload
+shape or transformation mismatches. Load
+[extended Swift patterns](references/swift-patterns-extended.md) for a compact
+language example; use `swift-codable` for implementation and verification.
 
 ## Modern Collection APIs
 
@@ -414,43 +349,9 @@ let freq = words.reduce(into: [:]) { counts, word in
 
 ## FormatStyle
 
-Use `.formatted()` instead of `DateFormatter`/`NumberFormatter`. It is
-type-safe, localized, and concise.
-
-```swift
-// Dates
-let now = Date.now
-now.formatted()                                       // "3/15/2024, 2:30 PM"
-now.formatted(date: .abbreviated, time: .shortened)   // "Mar 15, 2024, 2:30 PM"
-now.formatted(.dateTime.year().month().day())          // "Mar 15, 2024"
-now.formatted(.relative(presentation: .named))        // "yesterday"
-
-// Numbers
-let price = 42.5
-price.formatted(.currency(code: "USD"))               // "$42.50"
-price.formatted(.percent)                             // "4,250%"
-(1_000_000).formatted(.number.notation(.compactName)) // "1M"
-
-// Measurements
-let distance = Measurement(value: 5, unit: UnitLength.kilometers)
-distance.formatted(.measurement(width: .abbreviated)) // "5 km"
-
-// Duration (Swift 5.7+)
-let duration = Duration.seconds(3661)
-duration.formatted(.time(pattern: .hourMinuteSecond)) // "1:01:01"
-
-// Byte counts
-Int64(1_500_000).formatted(.byteCount(style: .file)) // "1.5 MB"
-
-// Lists
-["Alice", "Bob", "Carol"].formatted(.list(type: .and)) // "Alice, Bob, and Carol"
-```
-
-**Parsing:** `FormatStyle` also supports parsing:
-```swift
-let value = try Decimal("$42.50", format: .currency(code: "USD"))
-let date = try Date("Mar 15, 2024", strategy: .dateTime.month().day().year())
-```
+Use `.formatted()` and `Text(_:format:)` for basic display. Route style
+selection, parsing, localization testing, and reusable formatter design to
+`swift-formatstyle`.
 
 ## String Interpolation
 

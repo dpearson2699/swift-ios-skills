@@ -6,19 +6,17 @@ description: "Implement, review, or improve in-app purchases and subscriptions u
 # StoreKit 2 In-App Purchases and Subscriptions
 
 Implement in-app purchases, subscriptions, paywalls, and StoreKit testing using
-StoreKit 2 on iOS 26+. Use the modern Swift-based `Product`, `Transaction`,
+StoreKit 2. Use the modern Swift-based `Product`, `Transaction`,
 `PurchaseAction`, `StoreView`, and `SubscriptionStoreView` APIs. Avoid original
 In-App Purchase APIs (`SKProduct`, `SKPaymentQueue`) unless legacy OS support
 requires them.
 
-When reviewing StoreKit code, explicitly separate "preferred SwiftUI path" from
-"invalid API": `PurchaseAction` is the preferred custom SwiftUI button path, but
-direct `product.purchase(options:)` is still valid for lower-level custom
-StoreKit flows.
+StoreKit views initiate purchases automatically. For custom controls, use
+`PurchaseAction` in SwiftUI, `purchase(confirmIn:options:)` in UIKit/AppKit, and
+`product.purchase(options:)` on watchOS.
 
 ## Contents
 
-- [Implementation Review Minimums](#implementation-review-minimums)
 - [Product Types](#product-types)
 - [Loading Products](#loading-products)
 - [Purchase Flow](#purchase-flow)
@@ -34,33 +32,6 @@ StoreKit flows.
 - [Common Mistakes](#common-mistakes)
 - [Review Checklist](#review-checklist)
 - [References](#references)
-
-## Implementation Review Minimums
-
-When reviewing a paywall, purchase manager, or entitlement gate, include these
-points explicitly:
-
-- Standard SwiftUI paywalls should prefer `StoreView`, `ProductView`, or
-  `SubscriptionStoreView`; custom SwiftUI buy buttons should prefer
-  `PurchaseAction`; direct `product.purchase(options:)` is valid for
-  lower-level custom StoreKit flows.
-- `Transaction.updates` must start at app launch because it catches purchases
-  from other devices, Family Sharing changes, renewals, Ask to Buy approvals,
-  refunds, revocations, and unfinished transactions.
-- Include this entitlement-scope sentence verbatim when reviewing
-  `Transaction.currentEntitlements`: "It covers non-consumables, active or
-  grace-period auto-renewable subscriptions, and non-renewing subscriptions; it
-  does not include consumable purchase or delivery history."
-- Verify every `VerificationResult` before granting access. Deliver or persist
-  the entitlement first, then call `transaction.finish()`.
-- Pending purchases and user cancellations never unlock content; pending Ask to
-  Buy approvals unlock only after a verified transaction arrives through the
-  launch-time listener.
-- Exclude refunded or revoked transactions from active entitlement state and
-  re-check entitlements when refunds or revocations arrive through
-  `Transaction.updates`.
-- Provide a visible restore purchases path and Terms of Service / Privacy
-  Policy links on subscription paywalls.
 
 ## Product Types
 
@@ -97,13 +68,9 @@ for product in products {
 Prefer StoreKit views for standard paywalls because they initiate purchases,
 restore purchases, and display policy controls. For custom SwiftUI purchase
 buttons, prefer `PurchaseAction` from the environment. Use direct
-`product.purchase(options:)` only for lower-level custom flows, and use
-`purchase(confirmIn:options:)` for UIKit or AppKit confirmation. Always handle
-every `PurchaseResult`, verify before access, deliver durably, then finish.
-
-Review wording: do not call `product.purchase(options:)` inherently wrong. Say
-"prefer `PurchaseAction` for SwiftUI buttons; keep `product.purchase(options:)`
-for lower-level custom flows that need direct StoreKit control."
+`product.purchase(options:)` for watchOS, and use `purchase(confirmIn:options:)`
+for UIKit or AppKit confirmation. Always handle every `PurchaseResult`, verify
+before access, deliver durably, then finish.
 
 ```swift
 @Environment(\.purchase) private var purchase
@@ -142,10 +109,6 @@ devices, Family Sharing changes, renewals, Ask to Buy approvals, refunds,
 revocations, and unfinished transactions Apple emits once immediately after
 launch. Keep the task retained for the app lifetime.
 
-In implementation reviews, name the launch-time coverage explicitly: purchases
-made on other devices, Family Sharing changes, subscription renewals, Ask to Buy
-approvals, refunds, revocations, and unfinished transactions.
-
 ```swift
 @main
 struct MyApp: App {
@@ -173,17 +136,11 @@ struct MyApp: App {
 
 ## Entitlement Checking
 
-Use `Transaction.currentEntitlements` for non-consumables, active or grace
-period auto-renewable subscriptions, and non-renewing subscriptions. It excludes
-consumables and consumable delivery history; track consumable fulfillment in
-your own app or server ledger. It also excludes refunded or revoked
-transactions. Use `Transaction.unfinished` for unfinished consumables and
-recovery sweeps. Always check `revocationDate` when processing transactions.
-
-In reviews, include this sentence verbatim: "Transaction.currentEntitlements
-covers non-consumables, active or grace-period auto-renewable subscriptions, and
-non-renewing subscriptions; it does not include consumable purchase or delivery
-history." Do not replace this with only a code sample or a revocation check.
+`Transaction.currentEntitlements` emits non-consumables, active or grace-period
+auto-renewable subscriptions, and the latest non-renewing subscription
+transaction—including finished ones. It excludes consumables and refunded or
+revoked products. Track consumable fulfillment separately, and apply the app's
+expiration policy to non-renewing subscriptions before granting access.
 
 ```swift
 @Observable
@@ -198,6 +155,10 @@ class StoreManager {
         for await result in Transaction.currentEntitlements {
             if case .verified(let transaction) = result,
                transaction.revocationDate == nil {
+                if transaction.productType == .nonRenewing,
+                   transaction.expirationDate.map({ $0 <= .now }) ?? true {
+                    continue
+                }
                 purchased.insert(transaction.productID)
             }
         }
@@ -253,29 +214,14 @@ SubscriptionStoreView(groupID: "YOUR_GROUP_ID")
 
 ### Custom Marketing Content
 
-```swift
-SubscriptionStoreView(groupID: "YOUR_GROUP_ID") {
-    VStack {
-        Image(systemName: "crown.fill").font(.system(size: 60)).foregroundStyle(.yellow)
-        Text("Unlock Premium").font(.largeTitle.bold())
-        Text("Access all features").foregroundStyle(.secondary)
-    }
-}
-.containerBackground(.blue.gradient, for: .subscriptionStore)
-```
+Use the container background and header patterns in
+[SubscriptionStoreView Control Styles](references/storekit-advanced.md#subscriptionstoreview-control-styles).
 
 ### Hierarchical Layout
 
-`SubscriptionOptionGroup`, `SubscriptionOptionSection`, and
-`SubscriptionPeriodGroupSet` are iOS 18+ helper views for organizing options
-inside `SubscriptionStoreView`.
-
-```swift
-SubscriptionStoreView(groupID: "YOUR_GROUP_ID") {
-    SubscriptionPeriodGroupSet()
-}
-.subscriptionStoreControlStyle(.picker)
-```
+Use `SubscriptionOptionGroup`, `SubscriptionOptionSection`, or
+`SubscriptionPeriodGroupSet` to organize iOS 18+ options; see
+[Subscription Group Management](references/storekit-advanced.md#subscription-group-management).
 
 ## StoreView (iOS 17+)
 

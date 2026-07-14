@@ -396,7 +396,8 @@ The `manual` state is significant: manual keys have the **Generate Swift Symbol*
 
 ## Generated Localizable Symbols (Xcode 26+)
 
-For generated-symbol or migration answers, start by stating: "String Catalogs are the recommended Xcode 15+ localization workflow. Xcode 26 generated symbols are a separate typed-access layer on top of String Catalogs." Then explain generated symbols, plurals, or migration details. Do not describe catalogs themselves as requiring Xcode 26 or iOS 17.
+Generated symbols are an Xcode 26 typed-access layer on top of String Catalogs;
+do not describe catalogs themselves as requiring Xcode 26 or iOS 17.
 
 ### Enabling symbol generation
 

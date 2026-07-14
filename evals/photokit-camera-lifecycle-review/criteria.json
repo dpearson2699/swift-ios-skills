@@ -1,0 +1,36 @@
+{
+  "context": "Tests whether camera configuration and session state changes are serialized with balanced transactions and correct UI boundaries.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {
+      "name": "Single owner",
+      "description": "Assigns AVCaptureSession configuration, startRunning, and stopRunning to one dedicated non-main serial executor or queue.",
+      "max_score": 25
+    },
+    {
+      "name": "No detached race",
+      "description": "Does not mix main-actor configuration with detached or unrelated-queue start and stop operations.",
+      "max_score": 15
+    },
+    {
+      "name": "Balanced transaction",
+      "description": "Guarantees every beginConfiguration call reaches commitConfiguration, including early error paths.",
+      "max_score": 20
+    },
+    {
+      "name": "Graph checks",
+      "description": "Checks canAddInput and canAddOutput before changing the capture graph.",
+      "max_score": 15
+    },
+    {
+      "name": "Permission ordering",
+      "description": "Resolves camera authorization before entering the session configuration transaction.",
+      "max_score": 10
+    },
+    {
+      "name": "Preview boundary",
+      "description": "Keeps session ownership in a controller and limits UIViewRepresentable to displaying the AVCaptureVideoPreviewLayer.",
+      "max_score": 15
+    }
+  ]
+}

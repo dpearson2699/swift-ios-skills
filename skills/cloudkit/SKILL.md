@@ -7,12 +7,12 @@ description: "Implement, review, or improve CloudKit and iCloud sync in iOS/macO
 
 Sync data across devices using CloudKit, iCloud key-value storage, and iCloud
 Drive. Covers container setup, record CRUD, queries, subscriptions, CKSyncEngine,
-SwiftData integration, conflict resolution, and error handling. Targets iOS 26+
-with Swift 6.3; older availability noted where relevant.
+SwiftData integration, conflict resolution, and error handling.
 
 ## Contents
 
 - [Container and Database Setup](#container-and-database-setup)
+- [Workflow](#workflow)
 - [CKRecord CRUD](#ckrecord-crud)
 - [CKQuery](#ckquery)
 - [CKSubscription](#cksubscription)
@@ -25,6 +25,16 @@ with Swift 6.3; older availability noted where relevant.
 - [Common Mistakes](#common-mistakes)
 - [Review Checklist](#review-checklist)
 - [References](#references)
+
+## Workflow
+
+1. Choose the database scope and sync owner; verify capability, container, account status, schema, and environment before writing records.
+2. Make a local change durable, enqueue it, then let subscriptions or `CKSyncEngine` drive remote work rather than polling.
+3. Persist change tokens or sync-engine state after successful application.
+4. Test offline edits, partial failure, rate limiting, token expiry, conflict, account loss, zone deletion, and relaunch.
+5. On failure, classify the `CKError`, restore the affected fixture or queue item, apply the documented retry/reset/merge action, and rerun the same scenario. Never restart a full sync blindly after partial success.
+
+Load [references/cloudkit-patterns.md](references/cloudkit-patterns.md) for incremental zone changes, shares, assets, batch operations, and Dashboard procedures.
 
 ## Container and Database Setup
 
@@ -429,43 +439,14 @@ func resolveConflict(_ error: CKError) {
 
 ## Common Mistakes
 
-**DON'T:** Perform sync operations without checking account status.
-**DO:** Check `CKContainer.accountStatus()` first; handle `.noAccount`.
-```swift
-// WRONG
-try await privateDB.save(record)
-// CORRECT
-guard try await CKContainer.default().accountStatus() == .available
-else { throw SyncError.noiCloudAccount }
-try await privateDB.save(record)
-```
-
-**DON'T:** Ignore `.serverRecordChanged` errors.
-**DO:** Implement three-way merge using ancestor, client, and server records.
-
-**DON'T:** Store user-specific data in the public database.
-**DO:** Use private database for personal data; public only for app-wide content.
-
-**DON'T:** Poll for changes on a timer.
-**DO:** Use `CKDatabaseSubscription` or `CKSyncEngine` for push-based sync.
-```swift
-// WRONG
-Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in fetchAll() }
-// CORRECT
-let sub = CKDatabaseSubscription(subscriptionID: "db-changes")
-sub.notificationInfo = CKSubscription.NotificationInfo()
-sub.notificationInfo?.shouldSendContentAvailable = true
-try await privateDB.save(sub)
-```
-
-**DON'T:** Retry immediately on rate limiting.
-**DO:** Use `CKError.retryAfterSeconds` to wait the required duration.
-
-**DON'T:** Assume `CKSyncEngine` handles `.serverRecordChanged` conflicts for you.
-**DO:** Resolve `failedRecordSaves` with a three-way merge, then reschedule the save.
-
-**DON'T:** Pass nil change token on every fetch.
-**DO:** Persist change tokens to disk and supply them on subsequent fetches.
+| Mistake | Fix |
+|---|---|
+| Syncing without an account gate | Check `accountStatus()` and model `.noAccount` as a user-visible state. |
+| Personal data in the public database | Use private scope for user data; public scope is app-wide content. |
+| Timer polling | Use database subscriptions or `CKSyncEngine`. |
+| Immediate retry after throttling | Respect `retryAfterSeconds` and preserve pending work. |
+| Assuming the engine resolves conflicts | Three-way merge `failedRecordSaves`, then reschedule the save. |
+| Starting every fetch with a nil token | Persist tokens/state; reset only on the documented expiry path. |
 
 ## Review Checklist
 

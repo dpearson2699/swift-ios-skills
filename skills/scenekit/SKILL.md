@@ -5,10 +5,7 @@ description: "Maintain and extend existing SceneKit 3D scenes and visualizations
 
 # SceneKit
 
-Apple's high-level 3D rendering framework for maintaining existing scenes and
-visualizations on iOS using Swift 6.3. Provides a node-based scene graph,
-built-in geometry primitives, physically based materials, lighting, animation,
-and physics.
+Maintain existing node-based 3D scenes, materials, lighting, animation, and physics. Use RealityKit for new projects or major modernization work.
 
 **Deprecation notice (WWDC 2025):** SceneKit is officially deprecated across all
 Apple platforms and is now in maintenance mode (critical bug fixes only). Existing

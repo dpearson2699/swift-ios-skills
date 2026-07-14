@@ -5,7 +5,7 @@ description: "Measure ad effectiveness with privacy-preserving attribution using
 
 # AdAttributionKit
 
-Privacy-preserving ad attribution for iOS 17.4+ / Swift 6.3. AdAttributionKit
+Privacy-preserving ad attribution for iOS 17.4+. AdAttributionKit
 lets ad networks measure conversions (installs and re-engagements) without
 exposing user-level data. It supports the App Store and alternative
 marketplaces, and interoperates with SKAdNetwork.
@@ -231,25 +231,11 @@ optionally to the advertised app developer) after a conversion event.
 
 ### Conversion windows
 
-Three windows produce up to three postbacks for winning attributions:
-
-| Window | Duration            | Postback delay    |
-|--------|---------------------|-------------------|
-| 1st    | Days 0-2            | 24-48 hours       |
-| 2nd    | Days 3-7            | 24-144 hours      |
-| 3rd    | Days 8-35           | 24-144 hours      |
-
-Tier 0 postbacks only produce the first postback. Nonwinning attributions
-produce only one postback.
+Winning attributions can produce multiple postbacks across conversion windows; lower data tiers and nonwinning attributions disclose less. Load [references/adattributionkit-patterns.md](references/adattributionkit-patterns.md) for the current window and delay matrix.
 
 ### Time windows for events
 
-| Event                          | Time limit                              |
-|--------------------------------|-----------------------------------------|
-| View-through to install        | 24 hours (configurable up to 7 days)    |
-| Click-through to install       | 30 days (configurable down to 1 day)    |
-| Install to first update        | 60 days                                 |
-| Re-engagement to first update  | 2 days                                  |
+Attribution eligibility windows are distinct from conversion/postback windows. Configure and verify view-through, click-through, install-update, and re-engagement limits from the current documentation and the reference; do not merge the two concepts.
 
 ### Lock conversion values early
 
@@ -268,13 +254,7 @@ After locking, the system ignores further updates in that conversion window.
 
 ### Postback data by tier
 
-| Field                        | Tier 0 | Tier 1      | Tier 2      | Tier 3      |
-|------------------------------|--------|-------------|-------------|-------------|
-| `source-identifier` digits   | 2      | 2           | 2-4         | 2-4         |
-| `conversion-value` (fine)    | --     | --          | 1st only    | 1st only    |
-| `coarse-conversion-value`    | --     | 1st only    | 2nd/3rd     | 2nd/3rd     |
-| `publisher-item-identifier`  | --     | --          | --          | Yes         |
-| `country-code`               | --     | --          | --          | Conditional |
+Disclosure grows with the system-assigned data tier. Code and analytics must tolerate absent source digits, fine/coarse conversion values, publisher item ID, and country. The reference owns the detailed tier matrix.
 
 ## Conversion Values
 
@@ -391,82 +371,13 @@ func handleUniversalLink(_ url: URL) {
 
 ## Common Mistakes
 
-### Forgetting to update conversion value on launch
-
-```swift
-// DON'T -- never updating the conversion value
-func appDidLaunch() {
-    // No conversion value update; postback window never starts
-}
-
-// DO -- update conversion value on first launch
-func appDidLaunch() async {
-    try? await Postback.updateConversionValue(0, lockPostback: false)
-}
-```
-
-### Using uppercase ad network IDs
-
-```xml
-<!-- DON'T -->
-<string>Example123.AdAttributionKit</string>
-
-<!-- DO -->
-<string>example123.adattributionkit</string>
-```
-
-### Calling handleTap without a current UIEventAttributionView tap
-
-```swift
-// DON'T -- tap without a current attribution view tap or fresh impression
-try await staleImpression.handleTap()
-// Throws if the tap cannot be validated or the impression expired
-
-// DO -- ensure UIEventAttributionView covers the ad and the impression is fresh
-let attributionView = UIEventAttributionView()
-attributionView.frame = adView.bounds
-adView.addSubview(attributionView)
-// Then handle the tap within 15 minutes after creating the AppImpression
-try await impression.handleTap()
-```
-
-### Ignoring handleTap errors
-
-```swift
-// DON'T
-try? await impression.handleTap()
-
-// DO -- handle specific errors
-do {
-    try await impression.handleTap()
-} catch let error as AdAttributionKitError {
-    switch error {
-    case .impressionExpired:
-        // Impression expired or is stale for click-through handling
-        refreshAdImpression()
-    case .missingAttributionView:
-        // UIEventAttributionView not present
-        break
-    default:
-        print("Attribution error: \(error)")
-    }
-}
-```
-
-### Not responding to postback requests
-
-```swift
-// DON'T -- silently dropping the request
-// The device retries up to 9 times over 9 days on HTTP 500
-
-// DO -- respond with 200 OK immediately
-// Server handler:
-func handlePostback(request: Request) -> Response {
-    // Process asynchronously, respond immediately
-    Task { await processPostback(request.body) }
-    return Response(status: .ok)
-}
-```
+| Mistake | Fix |
+|---|---|
+| First launch never updates conversion value | Call the canonical first-launch update before the intended window elapses. |
+| Ad network ID contains uppercase characters | Use the exact lowercase network identifier. |
+| `handleTap()` uses a stale impression or lacks the current attribution view tap | Cover the ad with `UIEventAttributionView`, keep the impression fresh, and call from the validated tap flow. |
+| Tap errors are discarded | Handle expired-impression and missing-view cases explicitly. |
+| Postback endpoint delays or drops the response | Accept, persist/queue processing, and return the expected success promptly. |
 
 ## Review Checklist
 
