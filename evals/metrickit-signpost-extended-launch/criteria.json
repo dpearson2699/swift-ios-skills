@@ -1,31 +1,36 @@
 {
-  "context": "Tests whether the agent catches stale or invented MetricKit signpost and extended launch APIs.",
+  "context": "Tests whether the agent replaces legacy or invented MetricKit signpost and extended-launch guidance with the iOS 27 surface.",
   "type": "weighted_checklist",
   "checklist": [
     {
-      "name": "Rejects fake signpost helper",
-      "description": "States that MXSignpostIntervalData.makeSignpostID(log:) is not the documented MetricKit API and removes that pattern.",
+      "name": "Modern log handle",
+      "description": "Uses the retained MetricManager instance and manager.logHandle(category:) in the iOS 27 branch.",
       "max_score": 20
     },
     {
-      "name": "Uses basic mxSignpost defaults",
-      "description": "Uses MXMetricManager.makeLogHandle(category:) with mxSignpost(.begin/.end, log:name:) and leaves advanced dso, signpostID, and format parameters at defaults for the basic pattern.",
-      "max_score": 20
-    },
-    {
-      "name": "Names signpost payload surface",
-      "description": "States that custom MetricKit signpost metrics appear under MXMetricPayload.signpostMetrics.",
+      "name": "Basic mxSignpost pattern",
+      "description": "Uses mxSignpost(.begin/.end, log:name:) without inventing or passing a signpost ID for the basic MetricKit interval.",
       "max_score": 15
     },
     {
-      "name": "Correct extended launch methods",
-      "description": "Uses throwing type methods try MXMetricManager.extendLaunchMeasurement(forTaskID:) and try or try? MXMetricManager.finishExtendedLaunchMeasurement(forTaskID:), not shared instance methods.",
+      "name": "Current result surface",
+      "description": "States that iOS 27 custom MetricKit intervals appear as MetricResult.signpostInterval.",
+      "max_score": 15
+    },
+    {
+      "name": "Current launch tracking",
+      "description": "Uses manager.trackLaunchTask(id:onTrackingError:_:) with a stable LaunchTaskID rather than manually pairing extend and finish calls.",
       "max_score": 25
     },
     {
-      "name": "Launch measurement constraints",
-      "description": "Mentions Apple's operational constraints for extended launch measurement, such as main-thread calls, early state-restoration or first-scene-active timing, overlapping task windows, max 16 tasks, and finishing every started task.",
-      "max_score": 20
+      "name": "Launch tracking semantics",
+      "description": "Mentions MainActor isolation, propagation of the tracked closure result or error, and reporting MetricManager.LaunchTaskError through onTrackingError without interrupting the work.",
+      "max_score": 15
+    },
+    {
+      "name": "Legacy branch boundary",
+      "description": "Keeps MXMetricManager.makeLogHandle, MXMetricPayload.signpostMetrics, and paired legacy launch calls only in the availability-isolated iOS 26 branch.",
+      "max_score": 10
     }
   ]
 }

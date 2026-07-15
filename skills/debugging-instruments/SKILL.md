@@ -5,8 +5,6 @@ description: "Debug iOS apps and profile performance using LLDB, the interactive
 
 # Debugging and Instruments
 
-Diagnose crashes, memory leaks, retain cycles, main thread hangs, and performance bottlenecks in iOS apps using LLDB, Memory Graph Debugger, and Instruments. Covers breakpoint workflows, memory graph analysis, hang detection, build failure triage, and Instruments profiling for CPU, memory, energy, and network.
-
 Keep interactive graph and Instruments triage here. Route detailed `.memgraph`
 command-line ownership/growth analysis and ETTrace work to their focused skills.
 
@@ -23,78 +21,31 @@ command-line ownership/growth analysis and ETTrace work to their focused skills.
 
 ## LLDB Debugging
 
-### Essential Commands
+Start with a small, repeatable workflow:
+
+1. Reproduce in a Debug build and stop at the narrowest useful breakpoint.
+2. Inspect locals without executing code, then capture the current stack.
+3. Move to the relevant frame or thread and verify the failing state.
+4. Add a condition or watchpoint only when the bad transition is still unclear.
 
 ```text
-(lldb) po myObject              # Print object description (calls debugDescription)
-(lldb) p myInt                  # Print with type info (uses LLDB formatter)
-(lldb) v myLocal                # Frame variable — fast, no code execution
-(lldb) bt                       # Backtrace current thread
-(lldb) bt all                   # Backtrace all threads
-(lldb) frame select 3           # Jump to frame #3 in the backtrace
-(lldb) thread list              # List all threads and their states
-(lldb) thread select 4          # Switch to thread #4
+(lldb) br set -f ViewModel.swift -l 42     # Stop at file and line
+(lldb) v myLocal                           # Inspect without executing code
+(lldb) po myObject                         # Use debugDescription when needed
+(lldb) bt all                              # Capture every thread's backtrace
+(lldb) frame select 3                      # Inspect a relevant frame
+(lldb) br modify 1 -c "count > 10"         # Narrow a noisy breakpoint
+(lldb) w set v self.score                  # Stop on an unexpected write
 ```
 
 Use `v` over `po` when you only need a local variable value — it does not
-execute code and cannot trigger side effects.
+execute code and cannot trigger side effects. Expression evaluation can execute
+or mutate program state, and hardware watchpoints are scarce, so use both
+deliberately.
 
-### Breakpoint Management
-
-```text
-(lldb) br set -f ViewModel.swift -l 42          # Break at file:line
-(lldb) br set -n viewDidLoad                     # Break on function name
-(lldb) br set -S setValue:forKey:                 # Break on ObjC selector
-(lldb) br modify 1 -c "count > 10"              # Add condition to breakpoint 1
-(lldb) br modify 1 --auto-continue true          # Log and continue (logpoint)
-(lldb) br command add 1                          # Attach commands to breakpoint
-> po self.title
-> continue
-> DONE
-(lldb) br disable 1                              # Disable without deleting
-(lldb) br delete 1                               # Remove breakpoint
-```
-
-### Expression Evaluation
-
-```text
-(lldb) expr myArray.count                        # Evaluate Swift expression
-(lldb) e -l swift -- import UIKit                # Import framework in LLDB
-(lldb) e -l swift -- self.view.backgroundColor = .red  # Modify state at runtime
-(lldb) e -l objc -- (void)[CATransaction flush]  # Force UI update after changes
-```
-
-After modifying a view property in the debugger, call `CATransaction.flush()`
-to see the change immediately without resuming execution.
-
-### Watchpoints
-
-```text
-(lldb) w set v self.score                        # Break when score changes
-(lldb) w set v self.score -w read               # Break when score is read
-(lldb) w modify 1 -c "self.score > 100"         # Conditional watchpoint
-(lldb) w list                                    # Show active watchpoints
-(lldb) w delete 1                                # Remove watchpoint
-```
-
-Watchpoints are hardware-backed (limited to ~4 on ARM). Use them to find
-unexpected mutations — the debugger stops at the exact line that changes
-the value.
-
-### Symbolic Breakpoints
-
-Set breakpoints on methods without knowing the file. Useful for framework
-or system code:
-
-```text
-(lldb) br set -n "UIViewController.viewDidLoad"
-(lldb) br set -r ".*networkError.*"              # Regex on symbol name
-(lldb) br set -n malloc_error_break              # Catch malloc corruption
-(lldb) br set -n UIViewAlertForUnsatisfiableConstraints  # Auto Layout issues
-```
-
-In Xcode, use the Breakpoint Navigator (+) to add symbolic breakpoints for
-common diagnostics like `-[UIApplication main]` or `swift_willThrow`.
+Load [references/lldb-patterns.md](references/lldb-patterns.md) for the complete
+inspection, breakpoint/logpoint, expression, watchpoint, thread navigation, and
+symbolic-breakpoint command tables.
 
 ## Memory Debugging
 
@@ -196,10 +147,10 @@ leaks MyApp.memgraph
 
 ### Identifying Main Thread Hangs
 
-For discrete interactions, delays under 100 ms are rarely noticeable; a few
-hundred milliseconds can make an app feel unresponsive. Apple developer tools
-typically start reporting main-run-loop busy periods over 250 ms. Common
-detection tools:
+For discrete interactions, delays under 100 ms are rarely noticeable. Apple
+developer tools commonly report main-run-loop busy periods over 250 ms, but
+that reporting threshold is not a product target: a few hundred milliseconds
+can still feel unresponsive. Common detection tools:
 
 - **Thread Checker** (Xcode Diagnostics): warns about non-main-thread UI calls
 - **Thread Performance Checker**: reports priority inversions while debugging
@@ -207,7 +158,7 @@ detection tools:
 - **Time Profiler / CPU Profiler / Hitches**: profile reproducible hangs
 - **os_signpost** and `OSSignposter`: mark intervals for Instruments
 - **MetricKit** hang diagnostics: production hang detection (see
-  `metrickit` skill for `MXHangDiagnostic`)
+  `metrickit` skill for `HangDiagnostic` and iOS 26 compatibility)
 
 ```swift
 import os
@@ -320,8 +271,8 @@ automatically. Compare exported metrics between builds.
 
 ### DON'T: Use print() for debugging instead of os.Logger
 
-`print()` output is unstructured, has no subsystem/category or privacy
-metadata, and is harder to filter than unified logging.
+Use `Logger` for levels, privacy metadata, and subsystem/category filtering;
+`.debug` remains in memory and is not persisted in release builds.
 
 ```swift
 // WRONG — unstructured and not filterable by subsystem/category
@@ -337,14 +288,7 @@ logger.debug("Button tapped, state: \(viewModel.state, privacy: .public)")
 logger.info("Network response received, bytes: \(data.count)")
 ```
 
-`Logger` messages appear in Console.app with filtering by subsystem and
-category, and `.debug` messages are written to the in-memory log store only (not persisted to disk in release builds).
-
 ### DON'T: Forget to enable Malloc Stack Logging before memory debugging
-
-Without Malloc Stack Logging, the Memory Graph Debugger shows leaked
-objects but cannot display allocation backtraces, making it difficult to
-find the code that created them.
 
 ```swift
 // WRONG — open Memory Graph without enabling Malloc Stack Logging
@@ -357,9 +301,6 @@ find the code that created them.
 
 ### DON'T: Debug optimized code expecting full variable visibility
 
-In Release (optimized) builds, the compiler may inline functions, eliminate
-variables, and reorder code. LLDB cannot display optimized-away values.
-
 ```swift
 // WRONG — profiling with Debug build, debugging with Release build
 // Debug builds: extra runtime checks distort perf measurements
@@ -371,9 +312,6 @@ variables, and reorder code. LLDB cannot display optimized-away values.
 ```
 
 ### DON'T: Stop on every loop iteration without conditional breakpoints
-
-Breaking on every iteration wastes time and makes it hard to find the
-specific case you care about.
 
 ```swift
 // WRONG — breakpoint on line inside loop, stops 10,000 times
@@ -407,20 +345,6 @@ actor CacheActor {
 Enable TSan: Scheme > Run > Diagnostics > Thread Sanitizer. For iOS, iPadOS,
 tvOS, visionOS, and watchOS apps, run TSan in Simulator; Apple documents device
 support only for 64-bit macOS apps.
-
-### Correction Pattern: Flawed Memory and Hang Plans
-
-When correcting another diagnostic plan, explicitly check these points:
-
-- **Leaks scope**: Leaks can catch unreachable abandoned allocations and
-  isolated retain cycles the process can no longer reach; it does not prove
-  every retain cycle still reachable from roots.
-- **Memory growth**: Use Allocations **Mark Generation** before and after the
-  reproduction step, then use Memory Graph Debugger for ownership and Malloc
-  Stack Logging for allocation backtraces.
-- **Hang severity**: Distinguish tool reporting from severity. Developer tools
-  commonly report main-run-loop busy periods over 250 ms, while a few hundred
-  milliseconds can still feel unresponsive to users.
 
 ## Review Checklist
 

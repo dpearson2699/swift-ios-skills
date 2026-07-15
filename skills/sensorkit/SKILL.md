@@ -5,13 +5,9 @@ description: "Access research-grade sensor data using SensorKit for approved stu
 
 # SensorKit
 
-Collect research-grade sensor data from iOS and watchOS devices for approved research studies. Choose the exact `SRSensor` from the catalog below and verify its individual availability.
-
-**SensorKit is restricted to Apple-approved research studies.** Apps must submit
-a research proposal to Apple and receive the `com.apple.developer.sensorkit.reader.allow`
-entitlement before any sensor data is accessible. This is not a general-purpose
-sensor API -- use CoreMotion for ordinary accelerometer, gyroscope, pedometer,
-or activity-recognition features, and HealthKit for health records and workouts.
+Choose the exact `SRSensor` and verify its individual availability. Use
+CoreMotion for ordinary motion/activity features and HealthKit for health
+records and workouts.
 
 ## Contents
 
@@ -40,8 +36,8 @@ and Apple Watch. The framework requires:
    SensorKit capability enabled.
 4. **User authorization** -- the system presents a Research Sensor & Usage Data
    sheet that users approve per-sensor.
-5. **24-hour data hold** -- newly recorded data is inaccessible for 24 hours,
-   giving users time to delete data they do not want to share.
+5. **Delayed retrieval** -- design fetch timing around the canonical
+   [Data Holding Period](#data-holding-period).
 
 An app can access up to 7 days of prior recorded data for an active sensor.
 
@@ -55,25 +51,15 @@ sensors Apple approved for the study. Common entitlement values include:
 <array>
     <string>ambient-light-sensor</string>
     <string>motion-accelerometer</string>
-    <string>motion-rotation-rate</string>
     <string>device-usage</string>
     <string>keyboard-metrics</string>
-    <string>messages-usage</string>
-    <string>phone-usage</string>
-    <string>visits</string>
-    <string>pedometer</string>
-    <string>on-wrist</string>
-    <string>speech-metrics-siri</string>
-    <string>speech-metrics-telephony</string>
-    <string>ambient-pressure</string>
-    <string>ecg</string>
-    <string>ppg</string>
 </array>
 ```
 
-Verify newer or specialized sensors against their individual `SRSensor` pages.
-For example, Apple's ECG and PPG sensor pages explicitly require `ecg` and
-`ppg` entitlement values in addition to their `NSSensorKitUsageDetail` entries.
+Load the [Entitlement and Usage-Detail Catalog](references/sensorkit-patterns.md#entitlement-and-usage-detail-catalog)
+when selecting the exact entitlement string and `NSSensorKitUsageDetail` key
+for each approved sensor. Recheck specialized sensors against their individual
+`SRSensor` pages.
 
 For manual signing, set Code Signing Entitlements to the entitlements file,
 Code Signing Identity to `Apple Developer`, Code Signing Style to `Manual`,
@@ -113,10 +99,9 @@ Three keys are required:
 If `Required` is `true` and the user denies that sensor, the system warns them
 that the study needs it and offers a chance to reconsider.
 
-Use the exact usage-detail dictionary for each requested sensor. Examples:
-motion sensors use `SRSensorUsageMotion`, ambient pressure uses `SRSensorUsageElevation`,
-ECG uses `SRSensorUsageECG`, PPG uses `SRSensorUsagePPG`, heart rate uses
-`SRSensorUsageHeartRate`, and wrist temperature uses `SRSensorUsageWristTemperature`.
+Use the exact usage-detail dictionary for each requested sensor. Load the
+[Entitlement and Usage-Detail Catalog](references/sensorkit-patterns.md#entitlement-and-usage-detail-catalog)
+when mapping sensors beyond the motion and ambient-light examples above.
 
 ## Authorization
 
@@ -138,81 +123,38 @@ SRSensorReader.requestAuthorization(
 }
 ```
 
-Check a reader's current status before recording:
+Use one status handler both for the initial check and delegate changes:
 
 ```swift
-switch reader.authorizationStatus {
-case .authorized:
-    reader.startRecording()
-case .denied:
-    // User declined -- direct to Settings > Privacy > Research Sensor & Usage Data
-    break
-case .notDetermined:
-    // Request authorization first
-    break
-@unknown default:
-    break
-}
-```
-
-Monitor status changes through the delegate:
-
-```swift
-func sensorReader(_ reader: SRSensorReader, didChange authorizationStatus: SRAuthorizationStatus) {
-    switch authorizationStatus {
+private func applyAuthorizationStatus(
+    _ status: SRAuthorizationStatus,
+    to reader: SRSensorReader
+) {
+    switch status {
     case .authorized:
         reader.startRecording()
     case .denied:
         reader.stopRecording()
-    default:
+        // Direct the user to Settings > Privacy > Research Sensor & Usage Data.
+    case .notDetermined:
+        break // Request authorization first.
+    @unknown default:
         break
     }
+}
+
+applyAuthorizationStatus(reader.authorizationStatus, to: reader)
+
+func sensorReader(_ reader: SRSensorReader, didChange authorizationStatus: SRAuthorizationStatus) {
+    applyAuthorizationStatus(authorizationStatus, to: reader)
 }
 ```
 
 ## Available Sensors
 
-### Device Sensors
-
-| Sensor | Type | Sample Type |
-|---|---|---|
-| `.deviceUsageReport` | Device usage | `SRDeviceUsageReport` |
-| `.keyboardMetrics` | Keyboard activity | `SRKeyboardMetrics` |
-| `.onWristState` | Watch wrist state | `SRWristDetection` |
-| `.acousticSettings` | Acoustic/accessibility settings | `SRAcousticSettings` |
-
-### App Activity Sensors
-
-| Sensor | Type | Sample Type |
-|---|---|---|
-| `.messagesUsageReport` | Messages app usage | `SRMessagesUsageReport` |
-| `.phoneUsageReport` | Phone call usage | `SRPhoneUsageReport` |
-
-### User Activity Sensors
-
-| Sensor | Type | Sample Type |
-|---|---|---|
-| `.accelerometer` | Acceleration data | `[CMRecordedAccelerometerData]` |
-| `.rotationRate` | Rotation rate | `[CMRecordedRotationRateData]` |
-| `.pedometerData` | Step/distance data | `CMPedometerData` |
-| `.visits` | Visited locations | `SRVisit` |
-| `.mediaEvents` | Media interactions | `SRMediaEvent` |
-| `.faceMetrics` | Face expressions | `SRFaceMetrics` |
-| `.heartRate` | Heart rate | `CMHighFrequencyHeartRateData` |
-| `.odometer` | Speed/slope | `CMOdometerData` |
-| `.siriSpeechMetrics` | Siri speech | `SRSpeechMetrics` |
-| `.telephonySpeechMetrics` | Phone speech | `SRSpeechMetrics` |
-| `.wristTemperature` | Wrist temp (sleep) | `SRWristTemperatureSession` |
-| `.sleepSessions` | Sleep session summaries | `SRSleepSession` |
-| `.photoplethysmogram` | PPG stream | `[SRPhotoplethysmogramSample]` |
-| `.electrocardiogram` | ECG stream | `[SRElectrocardiogramSample]` |
-
-### Environment Sensors
-
-| Sensor | Type | Sample Type |
-|---|---|---|
-| `.ambientLightSensor` | Ambient light | `SRAmbientLightSample` |
-| `.ambientPressure` | Pressure/temp | `[CMRecordedPressureData]` |
+Load the [Sensor Catalog](references/sensorkit-patterns.md#sensor-catalog) to map
+each `SRSensor` to its sample type. Request only sensors approved for the study
+and recheck the selected sensor's availability and usage-detail key.
 
 ## SRSensorReader
 
@@ -231,20 +173,10 @@ lightReader.delegate = self
 keyboardReader.delegate = self
 ```
 
-The reader communicates entirely through `SRSensorReaderDelegate`:
-
-| Delegate Method | Purpose |
-|---|---|
-| `sensorReader(_:didChange:)` | Authorization status changed |
-| `sensorReaderWillStartRecording(_:)` | Recording is about to start |
-| `sensorReader(_:startRecordingFailedWithError:)` | Recording failed to start |
-| `sensorReaderDidStopRecording(_:)` | Recording stopped |
-| `sensorReader(_:stopRecordingFailedWithError:)` | Recording failed to stop |
-| `sensorReader(_:didFetch:)` | Devices fetched |
-| `sensorReader(_:fetchDevicesDidFailWithError:)` | Device fetch failed |
-| `sensorReader(_:fetching:didFetchResult:)` | Sample received |
-| `sensorReader(_:didCompleteFetch:)` | Fetch completed |
-| `sensorReader(_:fetching:failedWithError:)` | Fetch failed |
+The reader communicates through `SRSensorReaderDelegate`. Load the
+[Delegate Method Catalog](references/sensorkit-patterns.md#delegate-method-catalog)
+when wiring the complete authorization, recording, device-fetch, and
+sample-fetch lifecycle.
 
 ## Recording and Fetching Data
 
@@ -381,89 +313,30 @@ func sensorReader(_ reader: SRSensorReader, fetchDevicesDidFailWithError error: 
 
 ### DON'T: Attempt to use SensorKit without the entitlement
 
-```swift
-// WRONG -- fails at runtime with SRError.invalidEntitlement
-let reader = SRSensorReader(sensor: .ambientLightSensor)
-reader.startRecording()
-
-// CORRECT -- obtain entitlement from Apple first, configure manual
-// provisioning profile, then use SensorKit
-```
+Obtain Apple's study approval, the sensor-specific entitlement values, and a
+matching manual provisioning profile before constructing production readers.
 
 ### DON'T: Expect immediate data access
 
-```swift
-// WRONG -- fetching data recorded moments ago returns nothing
-reader.startRecording()
-// ... record for a few minutes ...
-let request = SRFetchRequest()
-request.from = SRAbsoluteTime(CFAbsoluteTimeGetCurrent() - 300)
-request.to = SRAbsoluteTime.current()
-reader.fetch(request)  // Empty results due to 24-hour hold
-
-// CORRECT -- fetch data that is at least 24 hours old
-request.from = SRAbsoluteTime(CFAbsoluteTimeGetCurrent() - 86400 * 3)
-request.to = SRAbsoluteTime(CFAbsoluteTimeGetCurrent() - 86400)
-reader.fetch(request)
-```
+Apply the [Data Holding Period](#data-holding-period); a fetch overlapping the
+hold is not proof that recording failed.
 
 ### DON'T: Forget to set the delegate before fetching
 
-```swift
-// WRONG -- no delegate means no callbacks, results are silently lost
-let reader = SRSensorReader(sensor: .accelerometer)
-reader.startRecording()
-reader.fetch(request)
-
-// CORRECT -- assign delegate first
-reader.delegate = self
-reader.startRecording()
-reader.fetch(request)
-```
+Assign the delegate before `startRecording()` or `fetch(_:)`; results and
+failures arrive through delegate callbacks.
 
 ### DON'T: Skip per-sensor Info.plist usage detail
 
-```swift
-// WRONG -- missing NSSensorKitUsageDetail for the sensor
-// Authorization sheet shows no explanation, user is less likely to approve
-
-// CORRECT -- add usage detail for every sensor you request
-// See Info.plist Configuration section above
-```
+Add the exact [Info.plist Configuration](#infoplist-configuration) usage-detail
+entry for every requested sensor.
 
 ### DON'T: Ignore SRError codes
 
-```swift
-// WRONG -- generic error handling
-func sensorReader(_ reader: SRSensorReader, fetching: SRFetchRequest, failedWithError error: any Error) {
-    print("Error")
-}
-
-// CORRECT -- handle specific error codes
-func sensorReader(_ reader: SRSensorReader, fetching: SRFetchRequest, failedWithError error: any Error) {
-    if let srError = error as? SRError {
-        switch srError.code {
-        case .invalidEntitlement:
-            // Entitlement missing or sensor not in entitlement array
-            break
-        case .noAuthorization:
-            // User has not authorized this sensor
-            break
-        case .dataInaccessible:
-            // Data in 24-hour holding period or otherwise unavailable
-            break
-        case .fetchRequestInvalid:
-            // Invalid time range or device
-            break
-        case .promptDeclined:
-            // User declined the authorization prompt
-            break
-        @unknown default:
-            break
-        }
-    }
-}
-```
+Distinguish at least `.invalidEntitlement`, `.noAuthorization`,
+`.dataInaccessible`, `.fetchRequestInvalid`, `.promptDeclined`, and unknown
+future codes. Load the [Full Delegate Implementation](references/sensorkit-patterns.md#full-delegate-implementation)
+for the complete switch and callback wiring.
 
 ## Review Checklist
 

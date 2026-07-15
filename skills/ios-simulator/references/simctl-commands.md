@@ -6,6 +6,7 @@ Common `xcrun simctl` subcommands with syntax, flags, and examples. For workflow
 
 - [Device Management Commands](#device-management-commands)
 - [App Lifecycle Commands](#app-lifecycle-commands)
+- [Logger and Filtered Streaming](#logger-and-filtered-streaming)
 - [Testing and Simulation Commands](#testing-and-simulation-commands)
 - [Media and IO Commands](#media-and-io-commands)
 - [JSON Output Parsing](#json-output-parsing)
@@ -83,6 +84,34 @@ SIMCTL_CHILD_MY_VAR=value xcrun simctl launch booted com.example.MyApp
 ```
 
 Use the `SIMCTL_CHILD_` prefix for environment variables passed to `simctl launch`. Use `simctl spawn` for arbitrary processes inside the simulator, such as `log stream`, not as the default way to launch an installed app with environment.
+
+## Logger and Filtered Streaming
+
+Design Logger subsystems and categories to match the predicates used by
+`simctl spawn ... log stream`:
+
+```swift
+import Foundation
+import os
+
+let networkLogger = Logger(
+    subsystem: "com.example.app",
+    category: "networking"
+)
+
+func fetchData() async throws -> Data {
+    networkLogger.debug("Starting request to /api/data")
+    let (data, response) = try await URLSession.shared.data(from: url)
+    let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+    networkLogger.info("Received \(data.count) bytes, status: \(status)")
+    return data
+}
+```
+
+```bash
+xcrun simctl spawn booted log stream --level debug \
+    --predicate 'subsystem == "com.example.app" AND category == "networking"'
+```
 
 ## Testing and Simulation Commands
 

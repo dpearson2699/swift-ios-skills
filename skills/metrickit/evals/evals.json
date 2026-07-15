@@ -3,42 +3,45 @@
   "evals": [
     {
       "id": 0,
-      "prompt": "Review this MetricKit telemetry plan for an iOS app: the subscriber is created in a dashboard view, only didReceive([MXMetricPayload]) is implemented, payloads are parsed and uploaded before saving, and missed reports are ignored. Give corrected guidance with concise Swift where useful.",
-      "expected_output": "A source-grounded MetricKit setup review that registers early, handles both metric and diagnostic payloads, persists raw JSON before processing, offloads heavier work, and retrieves past reports precisely.",
+      "prompt": "Review this telemetry plan for an app built with the iOS 27 SDK that still deploys to iOS 26: MetricManager is created in a SwiftUI dashboard, only metricReports is consumed, each report is uploaded before saving, and the plan assumes MetricManager.pastPayloads can recover missed reports. Give corrected guidance with concise Swift where useful.",
+      "expected_output": "A source-grounded iOS 27 MetricManager ingestion plan with a separate iOS 26 MXMetricManager compatibility branch, durable-first handling of both modern report sequences, and no invented modern backfill API.",
       "files": [],
       "expectations": [
-        "Recommends registering a long-lived MXMetricManagerSubscriber during app startup, such as UIApplication launch or App.init.",
-        "Implements or explicitly requires both didReceive(_: [MXMetricPayload]) and didReceive(_: [MXDiagnosticPayload]).",
-        "Persists jsonRepresentation() before parsing, symbolication, or upload work.",
-        "Moves expensive parsing or uploads out of the subscriber callback after persistence.",
-        "Uses pastPayloads and pastDiagnosticPayloads, or otherwise addresses missed reports during startup backfill.",
-        "Does not claim that MetricKit callbacks are a normal immediate development-time signal for daily metric payloads."
+        "Creates and retains one long-lived MetricManager at app launch for the iOS 27 branch.",
+        "Starts exactly one consumer for metricReports and one for diagnosticReports, then fans out reports after receipt rather than competing over either sequence.",
+        "Encodes each MetricReport and DiagnosticReport and durably enqueues it before parsing, symbolication, or upload.",
+        "Keeps network upload, retry, and expensive analysis outside the report-consumer loop after durable persistence.",
+        "States that the documented iOS 27 MetricManager surface does not provide pastPayloads or pastDiagnosticPayloads and does not invent an equivalent.",
+        "Uses an availability-isolated MXMetricManagerSubscriber branch for iOS 26, where pastPayloads and pastDiagnosticPayloads remain legacy compatibility APIs.",
+        "Distinguishes normally daily metric reports from individual diagnostic reports and does not present MetricKit as an immediate local debugging substitute."
       ]
     },
     {
       "id": 1,
-      "prompt": "Fix this MetricKit code review comment: the team uses MXSignpostIntervalData.makeSignpostID(log:), passes a custom signpostID into mxSignpost, and calls MXMetricManager.shared.extendLaunchMeasurement without try from a background task. What should the corrected guidance say?",
-      "expected_output": "A correction-focused answer that removes the fake signpost helper, preserves MetricKit mxSignpost defaults, and uses the current extended launch type methods with availability and main-thread constraints.",
+      "prompt": "Correct this iOS 27 MetricKit guidance: it creates a log with MXMetricManager.makeLogHandle, invents MXSignpostIntervalData.makeSignpostID, passes that ID to mxSignpost, looks for MXMetricPayload.signpostMetrics, and manually pairs extendLaunchMeasurement with finishExtendedLaunchMeasurement. Show the current pattern and identify what belongs only in an iOS 26 compatibility branch.",
+      "expected_output": "A correction-focused answer using the iOS 27 MetricManager log handle, basic mxSignpost begin/end calls, MetricResult.signpostInterval, and trackLaunchTask while isolating legacy MX APIs.",
       "files": [],
       "expectations": [
-        "States that MXSignpostIntervalData.makeSignpostID(log:) is not the documented MetricKit API.",
-        "Uses MXMetricManager.makeLogHandle(category:) and mxSignpost(.begin/.end, log:name:) without custom dso, signpostID, or format parameters for the basic MetricKit pattern.",
-        "States that MetricKit custom signpost metrics appear under MXMetricPayload.signpostMetrics.",
-        "Uses try MXMetricManager.extendLaunchMeasurement(forTaskID:) and try or try? MXMetricManager.finishExtendedLaunchMeasurement(forTaskID:) as type methods, not shared instance methods.",
-        "Mentions Apple's operational constraints for extended launch measurement: main thread, early scene activation or state restoration timing, max 16 tasks, overlapping task windows, or finishing every started task."
+        "Uses the retained MetricManager instance and manager.logHandle(category:) in the iOS 27 branch.",
+        "Uses mxSignpost(.begin/.end, log:name:) without inventing or passing a signpost ID for the basic MetricKit pattern.",
+        "States that iOS 27 custom MetricKit intervals appear as MetricResult.signpostInterval.",
+        "Uses manager.trackLaunchTask(id:onTrackingError:_:) with a stable LaunchTaskID instead of manual extend and finish calls.",
+        "Mentions that trackLaunchTask is MainActor-isolated, propagates the tracked closure result or error, and reports MetricManager.LaunchTaskError through onTrackingError without interrupting the work.",
+        "Keeps MXMetricManager.makeLogHandle, MXMetricPayload.signpostMetrics, and paired legacy launch measurement calls only in the availability-isolated iOS 26 branch.",
+        "Notes that OSSignposter intervals using a MetricKit log handle do not populate the MetricKit resource-measurement fields provided by mxSignpost."
       ]
     },
     {
       "id": 2,
-      "prompt": "My SwiftUI feed stutters in development, Instruments shows a hot body update, and product wants production hang/crash telemetry in our analytics backend. What should the MetricKit skill handle directly, and what should be routed to adjacent skills?",
-      "expected_output": "A boundary-aware answer that keeps production MetricKit ingestion in scope while routing SwiftUI code remediation and local Instruments profiling details to sibling skills.",
+      "prompt": "My SwiftUI feed stutters in development, Instruments shows a hot body update, and product wants iOS 27 production hang/crash telemetry in our analytics backend while still supporting iOS 26. What should the MetricKit skill handle directly, and what should be routed to adjacent skills?",
+      "expected_output": "A boundary-aware answer that keeps modern and compatibility MetricKit ingestion in scope while routing SwiftUI code remediation and local Instruments profiling details to sibling skills.",
       "files": [],
       "expectations": [
-        "Keeps MXMetricManager setup, MXMetricPayload/MXDiagnosticPayload handling, MXHangDiagnostic or MXCrashDiagnostic processing, and backend upload guidance in the MetricKit scope.",
-        "Routes SwiftUI view invalidation, body-cost, identity, and remediation patterns to the swiftui-performance skill.",
+        "Keeps iOS 27 MetricManager setup, MetricReport and DiagnosticReport ingestion, HangDiagnostic or CrashDiagnostic processing, durable export, and the isolated iOS 26 MXMetricManager compatibility path in MetricKit scope.",
+        "Routes SwiftUI view invalidation, body cost, identity, and remediation patterns to the swiftui-performance skill.",
         "Routes local Instruments capture, LLDB, Memory Graph, and xctrace workflow details to the debugging-instruments skill.",
-        "Mentions using MXCallStackTree JSON plus dSYMs or an analytics symbolication pipeline for crash and hang triage.",
-        "Mentions MetricKit as production telemetry rather than immediate local debugging, including daily aggregation or non-realtime behavior.",
+        "Mentions preserving CallStackTree and binary metadata plus matching dSYMs or an analytics symbolication pipeline for crash and hang triage.",
+        "Frames MetricKit as production telemetry, including normally daily metric reports and system-produced individual diagnostics rather than an immediate local trace.",
         "Does not expand into a full SwiftUI refactor or full Instruments tutorial."
       ]
     }

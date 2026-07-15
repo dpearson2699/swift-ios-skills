@@ -4,6 +4,7 @@ Overflow reference for the `device-integrity` skill. Contains server verificatio
 
 ## Contents
 
+- [DeviceCheck Server Endpoints](#devicecheck-server-endpoints)
 - [Server-Side Attestation Verification](#server-side-attestation-verification)
 - [Server-Side Assertion Verification](#server-side-assertion-verification)
 - [Server Architecture](#server-architecture)
@@ -13,6 +14,20 @@ Overflow reference for the `device-integrity` skill. Contains server verificatio
 - [Full Integration Manager](#full-integration-manager)
 - [Gradual Rollout](#gradual-rollout)
 - [Environment Entitlement](#environment-entitlement)
+
+## DeviceCheck Server Endpoints
+
+The server authenticates with a DeviceCheck private key from the Apple
+Developer portal and signs a JWT for each request:
+
+| Endpoint | Purpose |
+|---|---|
+| `https://api.devicecheck.apple.com/v1/query_two_bits` | Read the two bits for a device |
+| `https://api.devicecheck.apple.com/v1/update_two_bits` | Set the two bits for a device |
+| `https://api.devicecheck.apple.com/v1/validate_device_token` | Validate a token without reading bits |
+
+Use `https://api.development.devicecheck.apple.com` only while testing and
+`https://api.devicecheck.apple.com` in production.
 
 ## Server-Side Attestation Verification
 

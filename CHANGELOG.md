@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## v3.9.0
+
+### Repository
+
+- Bump the Tessl plugin and Claude Code marketplace metadata to 3.9.0.
+- Complete fresh Tessl quality reviews for all 86 skills and bring every content, description, and validation score to 100.
+- Validate the remediated bundle locally with Agent Skills structural checks, reference checks, plugin linting, JSON parsing, and diagnostic-helper regression tests.
+
+### Skill updates
+
+- Refine 44 skills for stronger progressive disclosure, less duplicated guidance, clearer activation descriptions, complete operational workflows, and explicit validation and recovery checkpoints.
+- Migrate `metrickit` to the iOS/iPadOS 27 beta `MetricManager` async report APIs while retaining an explicit iOS 26 `MXMetricManager` compatibility path and refreshing related boundary evals.
+- Correct fast-moving framework guidance across EnergyKit, EventKit, AlarmKit, HealthKit, App Store metadata, AccessorySetupKit, SensorKit, PermissionKit, and related Apple platform skills.
+- Add focused references for Core Data persistent history and staged migration, iOS memgraph reachable growth, App Clips size and promotion constraints, accessibility nutrition labels, and other progressively disclosed workflows.
 
 ## v3.8.0
 

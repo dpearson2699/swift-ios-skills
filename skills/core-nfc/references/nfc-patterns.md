@@ -9,6 +9,7 @@ Overflow reference for the `core-nfc` skill. Contains advanced patterns that exc
 - [MIFARE Tag Operations](#mifare-tag-operations)
 - [FeliCa Tag Operations](#felica-tag-operations)
 - [Multi-Record NDEF Messages](#multi-record-ndef-messages)
+- [Parsing NDEF Payload Content](#parsing-ndef-payload-content)
 - [NDEF Tag Locking](#ndef-tag-locking)
 - [SwiftUI NFC Scanner](#swiftui-nfc-scanner)
 - [Error Handling Reference](#error-handling-reference)
@@ -227,6 +228,32 @@ func buildMultiRecordMessage() -> NFCNDEFMessage {
     return NFCNDEFMessage(records: records)
 }
 ```
+
+## Parsing NDEF Payload Content
+
+```swift
+func processRecord(_ record: NFCNDEFPayload) {
+    switch record.typeNameFormat {
+    case .nfcWellKnown:
+        if let url = record.wellKnownTypeURIPayload() {
+            print("URL: \(url)")
+        } else if let (text, locale) = record.wellKnownTypeTextPayload() {
+            print("Text (\(locale)): \(text)")
+        }
+    case .absoluteURI:
+        print(String(decoding: record.payload, as: UTF8.self))
+    case .media, .nfcExternal:
+        print("Type: \(String(decoding: record.type, as: UTF8.self))")
+    case .empty, .unknown, .unchanged:
+        break
+    @unknown default:
+        break
+    }
+}
+```
+
+Process every record in an `NFCNDEFMessage`; do not assume the first record is
+the only application payload.
 
 ### Checking Message Size Against Tag Capacity
 

@@ -245,7 +245,7 @@ $skill-installer install https://github.com/dpearson2699/swift-ios-skills/tree/m
 | [ios-networking](skills/ios-networking/) | URLSession async/await, REST APIs, downloads/uploads, WebSockets, pagination, retry, caching |
 | [swift-security](skills/swift-security/) | Keychain Services, CryptoKit symmetric/asymmetric, biometric authentication, Secure Enclave, certificate trust, credential storage, OWASP compliance · *Based on [ivan-magda/swift-security-skill](https://github.com/ivan-magda/swift-security-skill)* |
 | [ios-simulator](skills/ios-simulator/) | xcrun simctl commands, device lifecycle, push/location/privacy simulation, log streaming, simulator limitations |
-| [metrickit](skills/metrickit/) | MXMetricManager, hang diagnostics, crash reports, power metrics |
+| [metrickit](skills/metrickit/) | MetricManager async reports, hang/crash diagnostics, production performance telemetry |
 | [swiftlint](skills/swiftlint/) | SwiftLint setup, .swiftlint.yml, build tool plugin, rule selection, baselines, suppressions, CI integration |
 
 ### Hardware & Device Integration

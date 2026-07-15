@@ -36,7 +36,7 @@ Gate newer APIs explicitly:
 
 | API | Availability | Use |
 | --- | --- | --- |
-| `TipGroup` | iOS 18+ | Defaults to `.firstAvailable`; use `.ordered` only for sequences where later tips wait for earlier invalidation. |
+| `TipGroup` | iOS 18+ | Group or sequence tips; apply the [Tip Groups](#tip-groups) decision. |
 | `.cloudKitContainer(...)` | iOS 18+ | Sync tip state, parameters, events, and display counts across devices. |
 | `MaxDisplayDuration` | iOS 18+ | Automatically invalidate after cumulative display time. |
 | `resetEligibility()` | iOS 26+ | Make a previously invalidated tip eligible again without resetting the datastore. |
@@ -315,9 +315,6 @@ struct OnboardingView: View {
 }
 ```
 
-`TipGroup` defaults to `.firstAvailable`, which shows the first eligible tip in
-the group. Use `.ordered` only for true sequences, and invalidate each taught
-step when the user completes it so the next ordered tip can advance.
 `MaxDisplayDuration` can cap display time, but it is not the sequencing
 mechanism for an ordered group. Cast `currentTip` when the same group spans
 multiple controls:
@@ -364,12 +361,8 @@ display and can also hit datastore-already-configured errors.
 
 ### DON'T: Present iOS 18+ APIs as iOS 17 guidance
 
-Gate `TipGroup`, CloudKit sync, and `MaxDisplayDuration`. Provide iOS 17
-fallbacks with parameters/events only when the app still supports iOS 17.
-When the plan mentions `TipGroup(.ordered)`, also call out that plain
-`TipGroup` defaults to `.firstAvailable`. Use this explicit review wording:
-"Plain `TipGroup` defaults to `.firstAvailable`; `TipGroup(.ordered)` is the
-iOS 18+ sequence mode where later tips wait for earlier invalidation."
+Gate `TipGroup`, CloudKit sync, and `MaxDisplayDuration`. For group priority,
+apply the canonical [Tip Groups](#tip-groups) decision.
 
 ### DON'T: Use tips for critical information
 
@@ -398,7 +391,7 @@ see duplicate or stale education.
 - [ ] Event IDs are stable, namespaced when shared, and donation payloads are small.
 - [ ] Reusable tips override `id` with stable content-derived values.
 - [ ] Tips invalidate when the user performs the taught action.
-- [ ] `TipGroup` is stored in `@State`; reviews call out the default `.firstAvailable` priority and use `.ordered` only for true sequences with explicit invalidation, not `MaxDisplayDuration` as the sequencing mechanism.
+- [ ] `TipGroup` stays in `@State` and follows the Tip Groups priority decision.
 - [ ] CloudKit sync uses iCloud + CloudKit, Remote notifications, and a dedicated container when appropriate.
 - [ ] Custom styles use `configuration` values and call `action.label()`.
 - [ ] Testing overrides are debug/test-only and never ship active in production.

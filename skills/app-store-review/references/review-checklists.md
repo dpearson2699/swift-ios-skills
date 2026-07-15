@@ -1,12 +1,75 @@
 # App Store Review Checklists
 
 ## Contents
+- Current Release Requirements
+- Entitlements and Usage Descriptions
+- Phased Release Schedule
 - App Review Information Checklist
 - Privacy Manifest Checklist
 - In-App Purchase Checklist
-- Screenshot and App Preview Checklist
+- Metadata Compliance Checklist
 - HIG Compliance Checklist
 - Pre-Submission Checklist
+
+## Current Release Requirements
+
+Treat this table as a dated release snapshot, not a durable policy source.
+Re-check the linked current Apple requirements at the start of every audit and
+record the checked date beside each blocker.
+
+| Requirement | Current release evidence |
+|---|---|
+| Upload toolchain | Uploads after April 28, 2026 require Xcode 26+ and the relevant platform SDK 26+. |
+| iPhone screenshots | As of May 2026, 6.9-inch screenshots are the primary accepted set; provide 6.5-inch only when the 6.9-inch set is absent or intentionally optimized as a fallback. |
+| iPad screenshots | Provide 13-inch screenshots when the app runs on iPad. |
+| Metadata limits | App name: 30 characters; subtitle: 30 characters; keyword field: up to 100 UTF-8 bytes, with comma-separated terms longer than two characters and no spaces after commas. |
+
+Sources: [Upcoming requirements](https://developer.apple.com/news/upcoming-requirements/)
+and [Screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/).
+
+## Entitlements and Usage Descriptions
+
+Every entitlement must be justified by an active feature and its release
+evidence:
+
+| Entitlement | Review evidence |
+|---|---|
+| Camera | Specific `NSCameraUsageDescription` tied to a visible feature |
+| Location (Always) | Clear user-facing reason for background location |
+| Push Notifications | Marketing notifications require user opt-in |
+| HealthKit | Meaningful use of the requested health data |
+| Background Modes | Every enabled mode is justified and exercised |
+| App Groups | Shared data and participating targets are documented |
+| Associated Domains | Universal links resolve and function |
+
+Use valid property-list entries with specific user-facing purposes:
+
+```xml
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>Your location is used to show nearby restaurants on the map.</string>
+<key>NSCameraUsageDescription</key>
+<string>The camera is used to scan barcodes for price comparison.</string>
+```
+
+Vague strings such as “This app needs your location” do not explain the feature
+or why the data is needed.
+
+## Phased Release Schedule
+
+After approval, an automatic phased release uses this seven-day schedule:
+
+| Day | Percentage of Users |
+|---|---|
+| 1 | 1% |
+| 2 | 2% |
+| 3 | 5% |
+| 4 | 10% |
+| 5 | 20% |
+| 6 | 50% |
+| 7 | 100% |
+
+Users who manually request the update receive it immediately. App Store Connect
+can pause, resume, or complete the rollout.
 
 ## App Review Information Checklist
 
@@ -40,14 +103,38 @@ Verify PrivacyInfo.xcprivacy completeness:
 - [ ] Ask-to-buy and interrupted purchases handled
 - [ ] Transaction verification uses StoreKit 2 or server-side verification
 
-## Screenshot and App Preview Checklist
+## Metadata Compliance Checklist
 
-- [ ] 1-10 screenshots uploaded for each required platform and localization
-- [ ] iPhone screenshots use current App Store Connect accepted sizes; 6.9-inch iPhone screenshots are the primary set as of May 2026
-- [ ] 6.5-inch iPhone screenshots provided only when 6.9-inch iPhone screenshots are not provided or when manually optimizing that fallback
-- [ ] 13-inch iPad screenshots provided if the app runs on iPad
-- [ ] Screenshots and preview videos show actual app UI and do not misrepresent unavailable features
-- [ ] App previews are 30 seconds or shorter, with a poster frame that works without autoplay
+Keep this checklist about App Review compliance. Route keyword research,
+ranking, conversion optimization, screenshot ordering, and A/B testing to
+`app-store-optimization`.
+
+### App Name and Subtitle
+
+- [ ] Name and subtitle meet the limits in Current Release Requirements
+- [ ] Name is unique and not only a generic category term
+- [ ] Name and subtitle omit prices, competitor names, and trademarks you do not own
+
+### Screenshots
+
+- [ ] 1-10 screenshots are uploaded for each required platform and localization
+- [ ] iPhone and iPad sets match Current Release Requirements
+- [ ] Screenshots show localized, actual app UI and no unavailable features
+- [ ] Overlays and marketing frames do not obscure or misrepresent the interface
+
+### Keywords
+
+- [ ] Keyword field meets the limit and delimiter format in Current Release Requirements
+- [ ] Terms do not duplicate the app name or subtitle
+- [ ] Terms use either singular or plural, not both
+- [ ] Terms omit competitors, trademarks, and irrelevant words
+
+### App Previews
+
+- [ ] Up to three previews per localization, each no longer than 30 seconds
+- [ ] Footage shows the actual app; framing and effects do not misrepresent it
+- [ ] Optional audio or narration complies with rights and metadata claims
+- [ ] The first frame works as the product-page poster frame
 
 ## HIG Compliance Checklist
 
@@ -85,7 +172,7 @@ Verify PrivacyInfo.xcprivacy completeness:
 
 ### Metadata
 - [ ] App name matches functionality
-- [ ] Screenshots are real app screenshots using current required platform sizes, including 6.9-inch iPhone and 13-inch iPad when applicable
+- [ ] Screenshots are real app screenshots using the sets in Current Release Requirements
 - [ ] Description contains no prices or competitor mentions
 - [ ] Category is correct
 
@@ -112,7 +199,7 @@ Verify PrivacyInfo.xcprivacy completeness:
 - [ ] Empty states provide guidance
 
 ### Technical
-- [ ] Built with Xcode 26 or later and relevant platform SDK 26 or later for uploads after April 28, 2026
+- [ ] Archive meets the upload toolchain floor in Current Release Requirements
 - [ ] No private API usage
 - [ ] No dynamic code execution
 - [ ] Entitlements justified with usage descriptions

@@ -724,12 +724,18 @@ if let lastBookmark = game.bookmarks.last {
 
 ```swift
 func stateDidResetToBookmark(_ bookmarkID: StateBookmarkIdentifier) {
-    // Refresh all UI state from the current snapshot
+    // This callback is the completion/reconciliation point for the jump.
     game.withCurrentSnapshot { snapshot in
         refreshUI(from: snapshot)
+        validateRestoredTurnInvariant(snapshot)
     }
 }
 ```
+
+Do not inspect the snapshot immediately after `jumpToBookmark` or blindly issue
+another jump when local UI disagrees. Wait for this ordered callback, then
+rebuild local UI from its snapshot. Keep confirm, rollback, and discard handling
+in the main [Observer Patterns](#observer-patterns) implementation.
 
 ## Score Tracking
 

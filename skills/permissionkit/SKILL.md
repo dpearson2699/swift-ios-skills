@@ -5,9 +5,6 @@ description: "Create child communication safety experiences using PermissionKit 
 
 # PermissionKit
 
-> **Note:** PermissionKit APIs span multiple 26.x releases. Verify signatures
-> and availability against the current Xcode 26 SDK before shipping.
-
 Request permission from a parent or guardian to modify a child's communication
 rules. PermissionKit creates communication safety experiences that let children ask for exceptions to communication limits set by their parents.
 
@@ -17,7 +14,7 @@ permission, moderation, or chat-safety framework.
 
 ## Contents
 
-- [Setup](#setup)
+- [Availability and Setup](#availability-and-setup)
 - [Core Concepts](#core-concepts)
 - [Checking Communication Limits](#checking-communication-limits)
 - [Creating Permission Questions](#creating-permission-questions)
@@ -29,7 +26,7 @@ permission, moderation, or chat-safety framework.
 - [Review Checklist](#review-checklist)
 - [References](#references)
 
-## Setup
+## Availability and Setup
 
 Import `PermissionKit`. Do not invent PermissionKit entitlement keys; verify
 current Apple documentation and Xcode capabilities before adding signing
@@ -39,19 +36,13 @@ requirements.
 import PermissionKit
 ```
 
-**Platform availability:**
+Use this centralized version matrix and verify it against the current SDK:
 
-When reviewing or correcting code, state these exact tiers instead of collapsing
-PermissionKit to "iOS 26+":
-
-- Core topic, handle, question, response, choice, and `CommunicationLimits`
-  APIs: iOS 26.0+, iPadOS 26.0+, Mac Catalyst 26.0+, macOS 26.0+,
-  visionOS 26.0+.
-- `AskError`: iOS 26.1+, iPadOS 26.1+, Mac Catalyst 26.1+, macOS 26.1+,
-  visionOS 26.1+.
-- `AskCenter`, `AskCenter.ask(_:in:)`, `AskCenter.responses(for:)`,
-  `PermissionButton`, and `SignificantAppUpdateTopic`: iOS/iPadOS/
-  Mac Catalyst/macOS/visionOS 26.2+.
+| Tier | APIs | iOS/iPadOS/Mac Catalyst/macOS/visionOS |
+|---|---|---|
+| Core | Topics, handles, questions, responses, choices, `CommunicationLimits` | 26.0+ |
+| Errors | `AskError` | 26.1+ |
+| Presentation | `AskCenter`, ask/response sequences, `PermissionButton`, significant-update topics | 26.2+ |
 
 ## Core Concepts
 
@@ -361,21 +352,12 @@ for await response in AskCenter.shared.responses(for: SignificantAppUpdateTopic.
 ## Review Checklist
 
 - [ ] iMessage-only routing understood before choosing PermissionKit
-- [ ] Corrected guidance states exact availability tiers: core communication
-  types/limits 26.0+, `AskError` 26.1+, and `AskCenter`/`PermissionButton`/
-  responses/significant-update topics 26.2+
-- [ ] `AskError.communicationLimitsNotEnabled` handled to allow fallback
-- [ ] `AskError` cases handled individually with appropriate user feedback
+- [ ] The centralized availability matrix is applied to every API in use
 - [ ] `CommunicationHandle` created with correct `Kind` (phone, email, custom)
 - [ ] Known-handle examples guard a non-nil, nonempty bundle identifier before
   `knownHandles(in:)`
-- [ ] Known-handle checks are not treated as active-limits checks
-- [ ] `PermissionQuestion` includes at least one handle or person information
-- [ ] `AskCenter.shared.responses(for:)` observed to receive parent decisions
-- [ ] `PermissionButton` used instead of deprecated `CommunicationLimitsButton`
 - [ ] Person information includes name components for a clear permission prompt
 - [ ] Communication actions match the app's actual communication capabilities
-- [ ] Pending/canceled/expired question states handled when no response arrives
 - [ ] Response handling updates UI on the main actor
 - [ ] Error states provide clear guidance to the user
 

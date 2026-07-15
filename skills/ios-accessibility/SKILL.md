@@ -1,6 +1,6 @@
 ---
 name: ios-accessibility
-description: "Builds and audits SwiftUI, UIKit, and AppKit accessibility for VoiceOver, Voice Control, Switch Control, Full Keyboard Access, Dynamic Type, focus restoration, labels/traits/actions, traversal, custom rotors, NSAccessibility, XCTest checks, adaptive system preferences, and App Store accessibility declarations."
+description: "Build and audit SwiftUI, UIKit, and AppKit accessibility for VoiceOver, Voice Control, Switch Control, Full Keyboard Access, Dynamic Type, focus restoration, labels/traits/actions, traversal, custom rotors, NSAccessibility, XCTest checks, adaptive system preferences, and App Store accessibility declarations. Use when implementing accessible UI, fixing an accessibility audit, testing assistive-technology behavior, or substantiating App Store Accessibility Nutrition Labels."
 ---
 
 # iOS/macOS Accessibility - SwiftUI, UIKit, and AppKit
@@ -34,15 +34,16 @@ Build SwiftUI, UIKit, and AppKit interfaces that remain operable with VoiceOver,
 
 ## Core Principles
 
-1. Every interactive element MUST have an accessible label. If no visible text exists, add `.accessibilityLabel`.
-2. Every custom control MUST have correct traits via `.accessibilityAddTraits` (never direct assignment). For binary custom controls such as favorite/star buttons, prefer a real `Toggle`; otherwise expose toggle behavior with `.accessibilityAddTraits(.isToggle)` and a current state value without putting the control type in the label.
-3. Custom adjustable controls such as quantity steppers MUST expose adjustable behavior with `.accessibilityAdjustableAction`; UIKit custom adjustable controls also need the `.adjustable` trait.
-4. Decorative images MUST be hidden from assistive technologies.
-5. Sheet and dialog dismissals MUST return VoiceOver focus to the trigger element.
-6. All tap targets MUST be at least 44x44 points.
-7. Dynamic Type MUST be supported everywhere (system fonts, `@ScaledMetric`, adaptive layouts).
-8. No information conveyed by color alone -- always provide text or icon alternatives.
-9. System accessibility preferences MUST be respected: Reduce Motion, Reduce Transparency, Bold Text, Increase Contrast.
+1. Prefer semantic system controls; custom controls must expose the same name,
+   role, value, state, and actions.
+2. Preserve every task across assistive input: do not make a gesture, color,
+   motion, hover state, or visual arrangement the only path to meaning or action.
+3. Keep focus and traversal intentional across navigation, presentation, updates,
+   and dismissal.
+4. Let text, layout, contrast, transparency, and motion adapt to the user's
+   accessibility settings.
+5. Treat App Store accessibility declarations as evidence-backed product claims,
+   not as a summary of isolated control-level support.
 
 ## How VoiceOver Reads Elements
 
@@ -326,33 +327,25 @@ Use stable accessibility identifiers to locate `XCUIElement` values, then assert
 
 ## Review Checklist
 
-For every user-facing view, verify:
+For every common task, record evidence for these gates:
 
-- [ ] Every interactive element has an accessible label
-- [ ] Custom controls use correct traits via `.accessibilityAddTraits`
-- [ ] Adjustable custom controls expose adjustable behavior with `.accessibilityAdjustableAction` or UIKit `.adjustable`
-- [ ] Decorative images are hidden (`Image(decorative:)` or `.accessibilityHidden(true)`)
-- [ ] List rows group content with `.accessibilityElement(children: .combine)`
-- [ ] Sheets and dialogs return focus to the trigger on dismiss
-- [ ] Custom overlays have `.isModal` trait and escape action
-- [ ] All tap targets are at least 44x44 points
-- [ ] Dynamic Type supported (`@ScaledMetric`, system fonts, adaptive layouts)
-- [ ] Reduce Motion respected (no movement animations when enabled)
-- [ ] Row, checkout, sheet, and modal animations have Reduce Motion alternatives
-- [ ] Reduce Transparency respected (solid backgrounds when enabled)
-- [ ] Increase Contrast respected (stronger foreground colors)
-- [ ] No information conveyed by color alone
-- [ ] Custom actions provided for swipe-to-reveal and context menu features
-- [ ] Icon-only buttons have labels
-- [ ] Heading traits set on section headers
-- [ ] Custom accessibility types and notification payloads are `Sendable` when passed across concurrency boundaries
-- [ ] Labels are speakable and unique for Voice Control (no emoji-only or duplicate labels on screen)
-- [ ] Voice Control testing covers both "Show Names" and "Show Numbers"
-- [ ] `accessibilityInputLabels` provided for elements with long or awkward primary labels
-- [ ] Gesture-based interactions (swipe-to-delete, long-press) have accessibility custom action equivalents for Switch Control
-- [ ] Full Keyboard Access reaches and activates every control without focus traps
-- [ ] Element order and grouping are checked for traversal impact across VoiceOver, Switch Control, Voice Control overlays, and Full Keyboard Access review
-- [ ] System keyboard shortcuts are not overridden
+- [ ] Semantics: controls expose concise names, correct roles/states/values, and
+  alternatives for decorative, color-only, gesture-only, or adjustable content.
+- [ ] Navigation: grouping and traversal are intentional; modals expose modal and
+  escape behavior; focus returns to the initiating control.
+- [ ] Input: Voice Control names are speakable and unique, Show Names/Numbers both
+  work, Switch Control exposes gesture alternatives, and Full Keyboard Access has
+  no unreachable controls, traps, or overridden system shortcuts.
+- [ ] Adaptation: Dynamic Type, Reduce Motion, Reduce Transparency, Increase
+  Contrast, Bold Text, and 44x44-point targets are verified in representative
+  layouts and states.
+- [ ] Automation: XCTest covers stable identifiers, state, focus where available,
+  and every modal exit path without substituting for manual assistive-technology
+  testing.
+- [ ] Concurrency: accessibility values and notification payloads crossing
+  isolation boundaries are `Sendable`.
+- [ ] Claims: each App Store accessibility declaration is supported by a completed
+  common-task evidence matrix for every declared device type.
 
 ## References
 

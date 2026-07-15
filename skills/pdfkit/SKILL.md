@@ -5,7 +5,7 @@ description: "Display and manipulate PDF documents using PDFKit. Use when embedd
 
 # PDFKit
 
-Display, navigate, search, annotate, and manipulate PDF documents with `PDFView`, `PDFDocument`, `PDFPage`, `PDFAnnotation`, and `PDFSelection`. Targets Swift 6.3 / iOS 26+.
+Display, navigate, search, annotate, and manipulate PDF documents with `PDFView`, `PDFDocument`, `PDFPage`, `PDFAnnotation`, and `PDFSelection`.
 
 ## Contents
 
@@ -29,12 +29,14 @@ PDFKit requires no entitlements or Info.plist entries.
 import PDFKit
 ```
 
-**Platform availability:** iOS 11+, iPadOS 11+, Mac Catalyst 13.1+, macOS 10.4+, tvOS 11+, visionOS 1.0+.
+| API | Availability |
+|---|---|
+| PDFKit framework | iOS/iPadOS/tvOS 11+, Mac Catalyst 13.1+, macOS 10.4+, visionOS 1.0+ |
+| Find interaction and page overlays | iOS/iPadOS 16+ |
 
 ## Displaying PDFs
 
-`PDFView` is a `UIView` subclass that renders PDF content, handles zoom,
-scroll, text selection, and page navigation out of the box.
+`PDFView` renders PDF content and handles zoom, scrolling, text selection, and page navigation.
 
 ```swift
 import PDFKit
@@ -193,7 +195,7 @@ Implement `didMatchString(_:)` to receive each match and
 // Find next match from current selection
 let next = document.findString("term", fromSelection: current, withOptions: [.caseInsensitive])
 
-// System find bar (iOS 16+)
+// System find bar; apply the Setup availability gate
 pdfView.isFindInteractionEnabled = true
 ```
 
@@ -370,7 +372,7 @@ struct DocumentScreen: View {
 For interactive wrappers with page tracking, annotation hit detection, and
 coordinator patterns, see [references/pdfkit-patterns.md](references/pdfkit-patterns.md).
 
-### Page Overlays (iOS 16+)
+### Page Overlays
 
 `PDFPageOverlayViewProvider` places UIKit views on top of individual pages
 for interactive controls or custom rendering beyond standard annotations.
@@ -490,10 +492,7 @@ func updateUIView(_ pdfView: PDFView, context: Context) {
 - [PDFKit framework](https://sosumi.ai/documentation/pdfkit)
 - [PDFView](https://sosumi.ai/documentation/pdfkit/pdfview)
 - [PDFDocument](https://sosumi.ai/documentation/pdfkit/pdfdocument)
-- [PDFPage](https://sosumi.ai/documentation/pdfkit/pdfpage)
-- [PDFAnnotation](https://sosumi.ai/documentation/pdfkit/pdfannotation)
-- [PDFSelection](https://sosumi.ai/documentation/pdfkit/pdfselection)
-- [PDFThumbnailView](https://sosumi.ai/documentation/pdfkit/pdfthumbnailview)
+- [PDFPage](https://sosumi.ai/documentation/pdfkit/pdfpage), [PDFAnnotation](https://sosumi.ai/documentation/pdfkit/pdfannotation), [PDFSelection](https://sosumi.ai/documentation/pdfkit/pdfselection), [PDFThumbnailView](https://sosumi.ai/documentation/pdfkit/pdfthumbnailview)
 - [PDFPageOverlayViewProvider](https://sosumi.ai/documentation/pdfkit/pdfpageoverlayviewprovider)
 - [Adding Widgets to a PDF Document](https://sosumi.ai/documentation/pdfkit/adding-widgets-to-a-pdf-document)
 - [Adding Custom Graphics to a PDF](https://sosumi.ai/documentation/pdfkit/adding-custom-graphics-to-a-pdf)

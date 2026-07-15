@@ -10,6 +10,7 @@ Use this before App Clip feasibility reviews or capability audits, and when chec
 - [SKOverlay for Full App Promotion](#skoverlay-for-full-app-promotion)
 - [Capabilities and Limitations](#capabilities-and-limitations)
 - [Additional Restrictions](#additional-restrictions)
+- [Release Review Checklist](#release-review-checklist)
 
 ## Feasibility Review Template
 
@@ -111,3 +112,19 @@ In feasibility reviews, explicitly name restricted or unsupported App Clip runti
 - Hand off detailed ActivityKit/WidgetKit Live Activity implementation, StoreKit purchase/full-app monetization, BackgroundTasks processing, CloudKit schema or sync beyond public reads, durable credentials, and long-term state to sibling or full-app domains without adding implementation detail here.
 - In feasibility answers, avoid implementation-level Swift package routing, App Group/keychain recipes, location-confirmation API symbols, `SKOverlay` API calls, or framework snippets unless the user explicitly asks for implementation.
 - `UIDevice.name` and `identifierForVendor` return empty strings.
+
+## Release Review Checklist
+
+- [ ] App Clip target bundle ID is prefixed by the full app's bundle ID.
+- [ ] All three raw App Clip association/installation entitlement keys are on the correct targets.
+- [ ] Shared code uses Swift packages or the `APPCLIP` compilation condition.
+- [ ] SwiftUI and UIKit cold-launch/continuation routes handle every supported invocation URL in both the App Clip and full app.
+- [ ] Associated domains and AASA are correct for every custom invocation domain.
+- [ ] The default experience exists; production codes, Maps, and per-location cards use advanced experiences where required.
+- [ ] The App Thinning Size Report passes the applicable deployment/invocation limit.
+- [ ] Unsupported capabilities and launch-blocking downloads are absent or handed to the full app.
+- [ ] App Group data is non-secret; keychain and Sign in with Apple handoff follow the documented one-way and credential-state checks.
+- [ ] Ephemeral notification permission and relaunch routing handle disabled access and missing invocation URLs.
+- [ ] Location confirmation keys are on the App Clip target only.
+- [ ] The design completes a focused task and rejects marketing-only, ad-heavy, web-view-heavy, or install-gated flows.
+- [ ] Local Experiences and `_XCAppClipURL` invocation tests pass.

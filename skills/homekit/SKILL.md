@@ -50,7 +50,9 @@ For Matter commissioning into your own ecosystem:
 |---|---|
 | Homes, rooms, accessories, characteristics, actions, triggers | HomeKit |
 | Commission Matter into the app ecosystem | MatterSupport |
-| Privacy-preserving BLE/Wi-Fi accessory selection | AccessorySetupKit, then CoreBluetooth/NetworkExtension |
+| Select and authorize a nearby Bluetooth or Wi-Fi accessory | AccessorySetupKit |
+| Exchange Bluetooth GATT data after selection | CoreBluetooth |
+| Join or configure an accessory's Wi-Fi network after selection | NetworkExtension |
 
 ## HomeKit Data Model
 
@@ -119,7 +121,8 @@ let defaultRoom = home.roomForEntireHome()
 
 ### Discovering and Adding Accessories
 
-Use HomeKit and MatterSupport for home-model work: homes, rooms, `HMAccessory` services and characteristics, action sets, triggers and automations, HomeKit accessory setup UI, and Matter commissioning. If the same request asks about lower-level Bluetooth or Wi-Fi accessory discovery or authorization, name AccessorySetupKit as the boundary for discovery descriptors, picker authorization, `ASAccessorySession` events, and migration. After AccessorySetupKit setup, explicitly name both post-setup handoff targets: CoreBluetooth/GATT for Bluetooth accessories and NetworkExtension for Wi-Fi accessory network flows; neither handoff is HomeKit automation logic.
+Use the [Framework Boundary](#framework-boundary) table before adding an
+accessory; only HomeKit/MatterSupport work continues in this skill.
 
 ```swift
 // System UI for accessory discovery
@@ -349,48 +352,9 @@ Combine criteria with `.all([.vendorID(...), .not(.productID(...))])` or use
 For full ecosystem support, create a MatterSupport Extension. The extension
 handles commissioning callbacks. Override the needed methods, but do not call
 `super` from those overrides.
-
-```swift
-import MatterSupport
-
-final class MatterHandler: MatterAddDeviceExtensionRequestHandler {
-
-    override func validateDeviceCredential(
-        _ deviceCredential:
-            MatterAddDeviceExtensionRequestHandler.DeviceCredential
-    ) async throws {
-        // Validate the device attestation certificate
-        // Throw to reject the device
-    }
-
-    override func rooms(
-        in home: MatterAddDeviceRequest.Home?
-    ) async -> [MatterAddDeviceRequest.Room] {
-        // Return rooms in the selected home
-        return [
-            MatterAddDeviceRequest.Room(displayName: "Living Room"),
-            MatterAddDeviceRequest.Room(displayName: "Kitchen")
-        ]
-    }
-
-    override func configureDevice(
-        named name: String,
-        in room: MatterAddDeviceRequest.Room?
-    ) async {
-        // Save the device configuration to your backend
-        print("Configuring \(name) in \(room?.displayName ?? "no room")")
-    }
-
-    override func commissionDevice(
-        in home: MatterAddDeviceRequest.Home?,
-        onboardingPayload: String,
-        commissioningID: UUID
-    ) async throws {
-        // Use the onboarding payload to commission the device
-        // into your fabric using the Matter framework
-    }
-}
-```
+Load the complete [Advanced Matter Extension Handler](references/matter-commissioning.md#advanced-matter-extension-handler)
+for credential validation, room selection, configuration, commissioning, and
+network-association overrides.
 
 ## Common Mistakes
 

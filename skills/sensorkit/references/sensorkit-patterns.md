@@ -6,6 +6,9 @@ skill file's scope.
 
 ## Contents
 
+- [Entitlement and Usage-Detail Catalog](#entitlement-and-usage-detail-catalog)
+- [Sensor Catalog](#sensor-catalog)
+- [Delegate Method Catalog](#delegate-method-catalog)
 - [Full Delegate Implementation](#full-delegate-implementation)
 - [Multi-Sensor Manager](#multi-sensor-manager)
 - [Ambient Light Samples](#ambient-light-samples)
@@ -22,6 +25,90 @@ skill file's scope.
 - [SRAbsoluteTime Utilities](#srabsolutetime-utilities)
 - [Deletion Records](#deletion-records)
 - [Testing Considerations](#testing-considerations)
+
+## Entitlement and Usage-Detail Catalog
+
+Use only values Apple approved for the study. The expanded value array covered
+by this skill is:
+
+```xml
+<key>com.apple.developer.sensorkit.reader.allow</key>
+<array>
+    <string>ambient-light-sensor</string>
+    <string>motion-accelerometer</string>
+    <string>motion-rotation-rate</string>
+    <string>device-usage</string>
+    <string>keyboard-metrics</string>
+    <string>messages-usage</string>
+    <string>phone-usage</string>
+    <string>visits</string>
+    <string>pedometer</string>
+    <string>on-wrist</string>
+    <string>speech-metrics-siri</string>
+    <string>speech-metrics-telephony</string>
+    <string>ambient-pressure</string>
+    <string>ecg</string>
+    <string>ppg</string>
+</array>
+```
+
+Map each requested sensor to its exact `NSSensorKitUsageDetail` key:
+
+| Sensor family | Usage-detail key |
+|---|---|
+| Motion sensors | `SRSensorUsageMotion` |
+| Ambient light | `SRSensorUsageAmbientLightSensor` |
+| Ambient pressure | `SRSensorUsageElevation` |
+| Electrocardiogram | `SRSensorUsageECG` |
+| Photoplethysmogram | `SRSensorUsagePPG` |
+| Heart rate | `SRSensorUsageHeartRate` |
+| Wrist temperature | `SRSensorUsageWristTemperature` |
+
+Verify newer or specialized sensors against their individual `SRSensor` pages.
+ECG and PPG require both the `ecg` or `ppg` entitlement value and the matching
+usage-detail entry.
+
+## Sensor Catalog
+
+| Category | Sensor | Sample Type |
+|---|---|---|
+| Device | `.deviceUsageReport` | `SRDeviceUsageReport` |
+| Device | `.keyboardMetrics` | `SRKeyboardMetrics` |
+| Device | `.onWristState` | `SRWristDetection` |
+| Device | `.acousticSettings` | `SRAcousticSettings` |
+| App activity | `.messagesUsageReport` | `SRMessagesUsageReport` |
+| App activity | `.phoneUsageReport` | `SRPhoneUsageReport` |
+| User activity | `.accelerometer` | `[CMRecordedAccelerometerData]` |
+| User activity | `.rotationRate` | `[CMRecordedRotationRateData]` |
+| User activity | `.pedometerData` | `CMPedometerData` |
+| User activity | `.visits` | `SRVisit` |
+| User activity | `.mediaEvents` | `SRMediaEvent` |
+| User activity | `.faceMetrics` | `SRFaceMetrics` |
+| User activity | `.heartRate` | `CMHighFrequencyHeartRateData` |
+| User activity | `.odometer` | `CMOdometerData` |
+| User activity | `.siriSpeechMetrics` | `SRSpeechMetrics` |
+| User activity | `.telephonySpeechMetrics` | `SRSpeechMetrics` |
+| User activity | `.wristTemperature` | `SRWristTemperatureSession` |
+| User activity | `.sleepSessions` | `SRSleepSession` |
+| User activity | `.photoplethysmogram` | `[SRPhotoplethysmogramSample]` |
+| User activity | `.electrocardiogram` | `[SRElectrocardiogramSample]` |
+| Environment | `.ambientLightSensor` | `SRAmbientLightSample` |
+| Environment | `.ambientPressure` | `[CMRecordedPressureData]` |
+
+## Delegate Method Catalog
+
+| Delegate method | Purpose |
+|---|---|
+| `sensorReader(_:didChange:)` | Authorization status changed |
+| `sensorReaderWillStartRecording(_:)` | Recording is about to start |
+| `sensorReader(_:startRecordingFailedWithError:)` | Recording failed to start |
+| `sensorReaderDidStopRecording(_:)` | Recording stopped |
+| `sensorReader(_:stopRecordingFailedWithError:)` | Recording failed to stop |
+| `sensorReader(_:didFetch:)` | Devices fetched |
+| `sensorReader(_:fetchDevicesDidFailWithError:)` | Device fetch failed |
+| `sensorReader(_:fetching:didFetchResult:)` | Sample received |
+| `sensorReader(_:didCompleteFetch:)` | Fetch completed |
+| `sensorReader(_:fetching:failedWithError:)` | Fetch failed |
 
 ## Full Delegate Implementation
 

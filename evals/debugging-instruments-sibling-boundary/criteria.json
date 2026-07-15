@@ -14,7 +14,7 @@
     },
     {
       "name": "MetricKit handoff",
-      "description": "Routes MetricKit subscriber setup, MXDiagnosticPayload processing, or MXHangDiagnostic ingestion details to the metrickit skill.",
+      "description": "Routes MetricManager report-sequence setup, DiagnosticReport processing, or HangDiagnostic ingestion details to the metrickit skill, including legacy compatibility when required.",
       "max_score": 20
     },
     {

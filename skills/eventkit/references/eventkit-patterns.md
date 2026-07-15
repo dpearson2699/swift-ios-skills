@@ -14,10 +14,9 @@ Overflow reference for the `eventkit` skill. Contains advanced patterns that exc
 
 ## SwiftUI Calendar Integration
 
-Read event data only after full calendar access. Write-only access can create
-events but cannot read calendars or events, including events the app created.
-When supporting iOS 16 or earlier, availability-guard iOS 17+ access requests
-and use `requestAccess(to:)` only on the older path.
+Prerequisite: pass the main skill's full-access authorization gate before using
+this read/write integration. Keep the iOS 17+ request and older-system fallback
+in that single authorization path.
 
 ### Observable Event Manager
 
@@ -165,19 +164,40 @@ func processAllEvents(from start: Date, to end: Date) {
 
 ### Creating Multiple Events Efficiently
 
-Use `commit: false` for individual saves, then commit once at the end.
+Validate inputs and writable calendars first. Stage individual operations with
+`commit: false`, then call the throwing `commit()` once. On any staging or commit
+failure, call `reset()` to discard unsaved EventKit state and propagate the
+error. `reset()` disassociates and invalidates every existing object created or
+retrieved from that store, so discard all retained `EKObject` instances. Correct
+the known cause, then refetch with full access or reconstruct with write-only
+access before creating a new batch; do not blindly retry or require a read-back.
 
 ```swift
+enum EventBatchError: Error {
+    case noWritableCalendar
+    case readOnlyCalendar
+}
+
 func createEvents(from entries: [(String, Date, Date)]) throws {
-    for (title, start, end) in entries {
-        let event = EKEvent(eventStore: eventStore)
-        event.title = title
-        event.startDate = start
-        event.endDate = end
-        event.calendar = eventStore.defaultCalendarForNewEvents
-        try eventStore.save(event, span: .thisEvent, commit: false)
+    guard let calendar = eventStore.defaultCalendarForNewEvents,
+          calendar.allowsContentModifications else {
+        throw EventBatchError.noWritableCalendar
     }
-    try eventStore.commit()
+
+    do {
+        for (title, start, end) in entries {
+            let event = EKEvent(eventStore: eventStore)
+            event.title = title
+            event.startDate = start
+            event.endDate = end
+            event.calendar = calendar
+            try eventStore.save(event, span: .thisEvent, commit: false)
+        }
+        try eventStore.commit()
+    } catch {
+        eventStore.reset()
+        throw error
+    }
 }
 ```
 
@@ -185,10 +205,19 @@ func createEvents(from entries: [(String, Date, Date)]) throws {
 
 ```swift
 func deleteEvents(_ events: [EKEvent]) throws {
-    for event in events {
-        try eventStore.remove(event, span: .thisEvent, commit: false)
+    guard events.allSatisfy({ $0.calendar.allowsContentModifications }) else {
+        throw EventBatchError.readOnlyCalendar
     }
-    try eventStore.commit()
+
+    do {
+        for event in events {
+            try eventStore.remove(event, span: .thisEvent, commit: false)
+        }
+        try eventStore.commit()
+    } catch {
+        eventStore.reset()
+        throw error
+    }
 }
 ```
 

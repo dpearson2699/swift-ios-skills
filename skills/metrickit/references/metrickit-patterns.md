@@ -1,180 +1,320 @@
-# MetricKit Extended Patterns
+# MetricKit Extended and Compatibility Patterns
 
-Overflow reference for the `metrickit` skill. Contains deeper payload analysis, export patterns, custom signpost metrics, and extended launch measurement.
+Use these patterns after choosing the iOS/iPadOS 27 `MetricManager` path or the isolated iOS 26 `MXMetricManager` compatibility path in the main skill.
+
+> **Beta-sensitive:** The iOS/iPadOS 27 examples follow Apple's current beta documentation. They have not been locally compiler-verified because Xcode 27 is unavailable. Re-check availability and signatures with the shipping SDK.
 
 ## Contents
 
+- [Durable Report Outbox](#durable-report-outbox)
+- [Metric and Diagnostic Analysis](#metric-and-diagnostic-analysis)
+- [Key Metric Result Catalog](#key-metric-result-catalog)
 - [Call Stack Trees](#call-stack-trees)
 - [Custom Signpost Metrics](#custom-signpost-metrics)
-- [Exporting and Uploading Payloads](#exporting-and-uploading-payloads)
-- [Past Payloads](#past-payloads)
-- [Extended Launch Measurement](#extended-launch-measurement)
-- [Xcode Organizer Integration](#xcode-organizer-integration)
+- [Extended Launch](#extended-launch)
+- [iOS 26 Compatibility](#ios-26-compatibility)
+- [Xcode Organizer](#xcode-organizer)
+- [Apple Documentation](#apple-documentation)
 
-## Call Stack Trees
+## Durable Report Outbox
 
-`MXCallStackTree` is attached to each diagnostic (crash, hang, CPU exception,
-disk write, app launch). Use `jsonRepresentation()` to extract and symbolicate.
+The report consumer should perform one small, reliable operation: encode and durably enqueue the complete report.
+
+Use an outbox record that includes:
+
+- encoded `MetricReport` or `DiagnosticReport` bytes
+- report kind
+- local schema version
+- app version and build
+- receipt timestamp
+- stable deduplication key
+- upload-attempt count and next-attempt timestamp
+
+Keep raw reports until the server accepts them or a documented retention limit expires. Parse derived fields in a separate worker so a parser failure cannot discard the source evidence.
 
 ```swift
-func handleCrash(_ crash: MXCrashDiagnostic) {
-    let tree = crash.callStackTree
-    let treeJSON = tree.jsonRepresentation()
-
-    let exceptionType = crash.exceptionType
-    let signal = crash.signal
-    let reason = crash.terminationReason
-
-    uploadDiagnostic(
-        type: "crash",
-        exceptionType: exceptionType,
-        signal: signal,
-        reason: reason,
-        callStack: treeJSON
+@available(iOS 27.0, *)
+func enqueue(_ report: MetricReport) async throws {
+    let data = try JSONEncoder().encode(report)
+    try await outbox.insert(
+        kind: .metric,
+        payload: data,
+        deduplicationKey: stableKey(for: report)
     )
 }
 
-func handleHang(_ hang: MXHangDiagnostic) {
-    let tree = hang.callStackTree
-    let duration = hang.hangDuration  // Measurement<UnitDuration>
-    uploadDiagnostic(type: "hang", duration: duration, callStack: tree.jsonRepresentation())
+@available(iOS 27.0, *)
+func enqueue(_ report: DiagnosticReport) async throws {
+    let data = try JSONEncoder().encode(report)
+    try await outbox.insert(
+        kind: .diagnostic,
+        payload: data,
+        deduplicationKey: stableKey(for: report)
+    )
 }
 ```
 
-The JSON structure contains an array of call stack frames with binary name,
-offset, and address. Symbolicate using `atos` or upload dSYMs to your
-analytics service.
+`outbox` and `stableKey(for:)` are application-owned abstractions. Build the key from stable report metadata and the encoded report rather than memory identity.
 
-**Availability**: `MXCallStackTree` — iOS 14.0+, iPadOS 14.0+,
-Mac Catalyst 14.0+, macOS 12.0+, visionOS 1.0+
+The upload worker should:
 
-## Custom Signpost Metrics
+1. Read a bounded batch.
+2. Upload with authentication and request-level idempotency.
+3. Retry transient failures with exponential backoff and jitter.
+4. Quarantine invalid records without blocking later records.
+5. Delete or mark uploaded only after server acknowledgement.
+6. Apply byte and age limits so telemetry cannot consume unbounded storage.
 
-Use `mxSignpost` with a MetricKit log handle to capture custom performance
-intervals. These appear in the daily `MXMetricPayload` under `signpostMetrics`.
+Do not rely on a modern backfill call. Apple's iOS 27 `MetricManager` documentation exposes the live `metricReports` and `diagnosticReports` sequences, not replacements for `pastPayloads` or `pastDiagnosticPayloads`.
 
-### Creating a Log Handle
+## Metric and Diagnostic Analysis
 
-```swift
-let metricLog = MXMetricManager.makeLogHandle(category: "Networking")
-```
+### Daily metric reports
 
-### Emitting Signposts
-
-```swift
-import os
-
-func fetchData() async throws -> Data {
-    mxSignpost(.begin, log: metricLog, name: "DataFetch")
-    let data = try await URLSession.shared.data(from: url).0
-    mxSignpost(.end, log: metricLog, name: "DataFetch")
-
-    return data
-}
-```
-
-For MetricKit custom metrics, create the log with
-`MXMetricManager.makeLogHandle(category:)` and leave the `mxSignpost` overload's
-advanced `dso`, `signpostID`, and `format` parameters at their documented
-defaults.
-
-### Reading Custom Metrics from Payload
+Use `MetricReport.timeRange` to establish the aggregation window. Treat `environment` as optional and retain the entire interval/state structure even if the first dashboard only uses `intervalEntries.fullDayEntry`.
 
 ```swift
-if let signposts = payload.signpostMetrics {
-    for metric in signposts {
-        let name = metric.signpostName       // "DataFetch"
-        let category = metric.signpostCategory // "Networking"
-        let count = metric.totalCount
-        if let intervalData = metric.signpostIntervalData {
-            let avgMemory = intervalData.averageMemory
-            let cumulativeCPUTime = intervalData.cumulativeCPUTime
+@available(iOS 27.0, *)
+func analyze(_ report: MetricReport) {
+    let fullDay = report.intervalEntries.fullDayEntry
+
+    for result in fullDay.values {
+        switch result {
+        case .hangTime(let value):
+            recordHangTime(value, interval: report.timeRange)
+        case .scrollHitchTime(let value):
+            recordScrollHitchTime(value, interval: report.timeRange)
+        case .cpuTime(let value):
+            recordCPUTime(value, interval: report.timeRange)
+        case .peakMemory(let value):
+            recordPeakMemory(value, interval: report.timeRange)
+        case .foregroundTermination(let value):
+            recordForegroundTerminations(value, interval: report.timeRange)
+        case .extendedLaunch(let value):
+            recordExtendedLaunch(value, interval: report.timeRange)
+        case .signpostInterval(let value):
+            recordSignpostInterval(value, interval: report.timeRange)
+        @unknown default:
+            break // The raw encoded report remains in the outbox.
         }
     }
 }
 ```
 
-> The system limits the number of custom signpost metrics per log to reduce
-> on-device overhead. Reserve custom metrics for critical code paths.
+Metric reports are normally daily aggregates. Compare distributions across app versions, hardware, OS versions, and relevant environment fields. Avoid attributing a full-day value to one action without supporting local traces.
 
-## Exporting and Uploading Payloads
+### Individual diagnostic reports
 
-Both payload types conform to `NSSecureCoding` and provide
-`jsonRepresentation()` for easy serialization.
+Process the report only after durable storage:
 
 ```swift
-func persistPayload(_ jsonData: Data, from: Date? = nil, to: Date? = nil) {
-    let fileName = "metrics_\(ISO8601DateFormatter().string(from: Date())).json"
-    let url = FileManager.default.temporaryDirectory.appending(path: fileName)
-    try? jsonData.write(to: url)
-}
-
-func uploadPayloads(_ jsonData: Data) {
-    Task.detached(priority: .utility) {
-        var request = URLRequest(url: URL(string: "https://api.example.com/metrics")!)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = jsonData
-        _ = try? await URLSession.shared.data(for: request)
+@available(iOS 27.0, *)
+func analyze(_ report: DiagnosticReport) {
+    switch report.result {
+    case .crash(let crash):
+        symbolicate(crash.callStackTree)
+    case .hang(let hang):
+        recordHang(hang.hangDuration)
+        symbolicate(hang.callStackTree)
+    case .cpuException(let exception):
+        recordCPUException(
+            totalCPUTime: exception.totalCPUTime,
+            sampledTime: exception.totalSampledTime
+        )
+        symbolicate(exception.callStackTree)
+    case .diskWriteException(let exception):
+        recordDiskWriteException(exception.totalBytesWritten)
+        symbolicate(exception.callStackTree)
+    case .appLaunch(let launch):
+        recordLaunchDiagnostic(launch.launchDuration)
+        symbolicate(launch.callStackTree)
+    case .memoryException(let memory):
+        symbolicate(memory.callStackTree)
+    @unknown default:
+        break // Preserve and revisit the raw report after updating the parser.
     }
 }
 ```
 
-## Past Payloads
+Diagnostics are event-based and intended for prompt delivery when the system produces them. They are not a complete ledger of all crashes, hangs, launches, or resource events.
 
-If the subscriber was not registered when payloads arrived, retrieve them
-using `pastPayloads` and `pastDiagnosticPayloads`. These return reports
-generated since the last allocation of the shared manager instance.
+## Key Metric Result Catalog
+
+Load this catalog when mapping exact `MetricResult` cases into a parser or dashboard:
+
+| Area | `MetricResult` cases |
+|---|---|
+| Responsiveness | `hangTime`, `hitchTime`, `scrollHitchTime` |
+| Terminations | `foregroundTermination`, `backgroundTermination` |
+| Runtime | `totalForegroundTime`, `totalBackgroundTime`, `totalBackgroundAudioTime`, `totalBackgroundLocationTime`, `locationActivityTime` |
+| CPU and memory | `cpuTime`, `cpuInstructionsCount`, `peakMemory`, `suspendedMemory` |
+| Network | `totalWiFiUpload`, `totalWiFiDownload`, `totalCellularUpload`, `totalCellularDownload`, `cellularConditionTime` |
+| Launch | `timeToFirstDraw`, `applicationResumeTime`, `optimizedTimeToFirstDraw`, `extendedLaunch` |
+| Storage | `logicalDiskWrites`, `totalFileCount`, `totalFileSize`, `totalDiskSpaceCapacity` |
+| Display and GPU | `pixelLuminance`, `gpuTime`, `metalFrameRate` |
+| Custom intervals | `signpostInterval` |
+
+## Call Stack Trees
+
+`CallStackTree` is Codable and retains the structure needed for later analysis. Keep the whole tree plus `binaryInfo` before producing flattened display frames.
+
+Use `forEachFrame` when the consumer only needs frame traversal. Use `callStackThreads` when thread relationships matter. Symbolicate against the exact archive and dSYMs for the report's app build.
+
+Recommended server-side pipeline:
+
+1. Read the encoded diagnostic report.
+2. Resolve the app version/build to its archive.
+3. Match binary identifiers from `binaryInfo`.
+4. Symbolicate offsets against the matching dSYMs.
+5. Cluster signatures without deleting the original tree.
+
+## Custom Signpost Metrics
+
+Use the retained iOS 27 manager to create a log handle:
 
 ```swift
-let pastMetrics = MXMetricManager.shared.pastPayloads
-let pastDiags = MXMetricManager.shared.pastDiagnosticPayloads
+let log = manager.logHandle(category: "Database")
+
+mxSignpost(.begin, log: log, name: "Migration")
+await migrateDatabase()
+mxSignpost(.end, log: log, name: "Migration")
 ```
 
-## Extended Launch Measurement
+The resulting aggregate is a `MetricResult.signpostInterval` value. Keep signpost category and name stable across releases so comparisons remain meaningful.
 
-Track post-first-draw setup work (loading databases, restoring state) as part
-of the launch metric using extended launch measurement on iOS 16+, iPadOS 16+,
-Mac Catalyst 16+, macOS 13+, and visionOS 1+.
+Prefer `mxSignpost` for MetricKit intervals that need resource measurements. Apple's documentation notes that `OSSignposter` intervals created with the MetricKit handle do not populate the same resource-measurement fields.
+
+## Extended Launch
+
+Track launch-critical work through the retained manager:
 
 ```swift
-let taskID = MXLaunchTaskID("com.example.app.loadDatabase")
-
-try MXMetricManager.extendLaunchMeasurement(forTaskID: taskID)
-defer { try? MXMetricManager.finishExtendedLaunchMeasurement(forTaskID: taskID) }
-
-restoreCachedState()
-connectInitialSceneData()
+@MainActor
+@available(iOS 27.0, *)
+func loadLaunchData(using manager: MetricManager) async throws -> AppData {
+    try await manager.trackLaunchTask(
+        id: "load-app-data",
+        onTrackingError: { error in
+            recordLaunchTrackingError(error)
+        }
+    ) {
+        try await loadAppData()
+    }
+}
 ```
 
-Extended launch times appear under `histogrammedExtendedLaunch` in
-`MXAppLaunchMetric`.
+The tracked closure's result and application error propagate normally. `onTrackingError` reports `MetricManager.LaunchTaskError` without replacing the closure's outcome. Keep `LaunchTaskID` values stable and do not track noncritical background work as launch work.
 
-Use these throwing type methods on the main thread. Start the first task before
-or during state restoration, or before the first scene becomes active. The
-system supports up to 16 tasks; task windows need to overlap, and extended
-launch measurement ends when all running tasks finish.
+Extended launch results appear under `MetricResult.extendedLaunch`.
 
-## Xcode Organizer Integration
+## iOS 26 Compatibility
 
-Xcode Organizer shows the same MetricKit data aggregated across all users
-who have opted in to share diagnostics. Use Organizer for trend analysis:
+Use this branch only for deployment targets that include iOS/iPadOS 26 or earlier supported versions. `MXMetricManager` is deprecated in iOS 27.
 
-- **Metrics tab**: Battery, performance, and disk-write metrics over time
-- **Regressions tab**: Automatic detection of metric regressions per version
-- **Crashes tab**: Crash logs with symbolicated stack traces
+### Subscriber and past payloads
 
-MetricKit on-device collection complements Organizer by letting you route
-raw data to your own backend for custom dashboards, alerting, and filtering
-by user cohort.
+Register one retained subscriber as early as possible:
 
-## Apple Documentation Links
+```swift
+final class LegacyMetricsSubscriber: NSObject, MXMetricManagerSubscriber {
+    static let shared = LegacyMetricsSubscriber()
 
-- [MetricKit framework](https://sosumi.ai/documentation/metrickit)
+    private override init() {
+        super.init()
+    }
+
+    func start() {
+        let manager = MXMetricManager.shared
+        manager.add(self)
+
+        // Legacy-only backfill APIs.
+        persist(manager.pastPayloads)
+        persist(manager.pastDiagnosticPayloads)
+    }
+
+    func didReceive(_ payloads: [MXMetricPayload]) {
+        persist(payloads)
+    }
+
+    func didReceive(_ payloads: [MXDiagnosticPayload]) {
+        persist(payloads)
+    }
+
+    private func persist(_ payloads: [MXMetricPayload]) {
+        for payload in payloads {
+            durableLegacyOutbox.enqueue(payload.jsonRepresentation())
+        }
+    }
+
+    private func persist(_ payloads: [MXDiagnosticPayload]) {
+        for payload in payloads {
+            durableLegacyOutbox.enqueue(payload.jsonRepresentation())
+        }
+    }
+}
+```
+
+The outbox calls above are application-owned placeholders. Make them durable before parsing or uploading. Prevent duplicate `add(_:)` calls in the app's lifecycle code.
+
+Route at launch:
+
+```swift
+if #available(iOS 27.0, *) {
+    modernMetricsService.start()
+} else {
+    LegacyMetricsSubscriber.shared.start()
+}
+```
+
+### Legacy signposts
+
+```swift
+let log = MXMetricManager.makeLogHandle(category: "Database")
+
+mxSignpost(.begin, log: log, name: "Migration")
+await migrateDatabase()
+mxSignpost(.end, log: log, name: "Migration")
+```
+
+Legacy signpost aggregates are available through `MXMetricPayload.signpostMetrics`.
+
+### Legacy extended launch
+
+```swift
+try MXMetricManager.extendLaunchMeasurement(forTaskID: "load-app-data")
+defer {
+    try? MXMetricManager.finishExtendedLaunchMeasurement(forTaskID: "load-app-data")
+}
+await loadAppData()
+```
+
+Pair the calls on every control-flow path. Use `defer` where it can guarantee completion without changing asynchronous behavior.
+
+## Xcode Organizer
+
+Start with Organizer when Apple-provided aggregation is sufficient. A custom ingestion backend adds value when the product needs:
+
+- correlations with feature flags, experiments, or backend incidents
+- custom alert thresholds and retention
+- cross-platform observability
+- report-level symbolication and clustering
+- export into an existing telemetry warehouse
+
+Keep privacy and data-minimization requirements explicit. Avoid attaching user content or direct identifiers to MetricKit reports.
+
+## Apple Documentation
+
+- [MetricManager](https://sosumi.ai/documentation/metrickit/metricmanager)
+- [metricReports](https://sosumi.ai/documentation/metrickit/metricmanager/metricreports)
+- [diagnosticReports](https://sosumi.ai/documentation/metrickit/metricmanager/diagnosticreports)
+- [MetricReport](https://sosumi.ai/documentation/metrickit/metricreport)
+- [DiagnosticReport](https://sosumi.ai/documentation/metrickit/diagnosticreport)
+- [MetricResult](https://sosumi.ai/documentation/metrickit/metricresult)
+- [DiagnosticResult](https://sosumi.ai/documentation/metrickit/diagnosticresult)
+- [CallStackTree](https://sosumi.ai/documentation/metrickit/callstacktree)
+- [MetricManager.logHandle(category:)](https://sosumi.ai/documentation/metrickit/metricmanager/loghandle(category:))
+- [Synchronous trackLaunchTask](https://sosumi.ai/documentation/metrickit/metricmanager/tracklaunchtask(id:ontrackingerror:_:)-48k2s)
+- [Asynchronous trackLaunchTask](https://sosumi.ai/documentation/metrickit/metricmanager/tracklaunchtask(id:ontrackingerror:_:)-jnu1)
 - [MXMetricManager](https://sosumi.ai/documentation/metrickit/mxmetricmanager)
-- [MXMetricManagerSubscriber](https://sosumi.ai/documentation/metrickit/mxmetricmanagersubscriber)
-- [MXCallStackTree](https://sosumi.ai/documentation/metrickit/mxcallstacktree)
-- [MXSignpostMetric](https://sosumi.ai/documentation/metrickit/mxsignpostmetric)
-- [MXAppLaunchMetric](https://sosumi.ai/documentation/metrickit/mxapplaunchmetric)
-- [MXCrashDiagnostic](https://sosumi.ai/documentation/metrickit/mxcrashdiagnostic)
-- [Analyzing the performance of your shipping app](https://sosumi.ai/documentation/xcode/analyzing-the-performance-of-your-shipping-app)
+- [iOS & iPadOS 27 release notes](https://sosumi.ai/documentation/ios-ipados-release-notes/ios-ipados-27-release-notes)
+- [What's new in MetricKit (WWDC26)](https://sosumi.ai/videos/play/wwdc2026/222)

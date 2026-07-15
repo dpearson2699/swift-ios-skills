@@ -5,12 +5,12 @@ description: "Create, read, and manage calendar events and reminders using Event
 
 # EventKit
 
-Create, read, and manage calendar events and reminders. Covers authorization,
-event and reminder CRUD, recurrence rules, alarms, and EventKitUI editors.
-Targets Swift 6.3 / iOS 26+.
+Use EventKit for calendar and reminder authorization, CRUD, recurrence, alarms,
+and system editors.
 
 ## Contents
 
+- [Availability](#availability)
 - [Setup](#setup)
 - [Authorization](#authorization)
 - [Creating Events](#creating-events)
@@ -24,27 +24,28 @@ Targets Swift 6.3 / iOS 26+.
 - [Review Checklist](#review-checklist)
 - [References](#references)
 
+## Availability
+
+- **iOS 17+:** Use granular full/write-only request methods; legacy
+  `requestAccess(to:)` no longer prompts and throws. The system event editor can
+  create an event without app calendar access. For iOS 10–16, guard those APIs,
+  use the legacy request plus `NSCalendarsUsageDescription` /
+  `NSRemindersUsageDescription`; EventKitUI may also need
+  `NSContactsUsageDescription`.
+- **iOS 26+:** The typed `EKEventStore.EventStoreChanged` / `.changed` message is
+  available behind a guard. Keep `EKEventStoreChanged` for earlier systems.
+
 ## Setup
 
 ### Info.plist Keys
 
-Add the required usage description strings based on what access level you need:
+Add the usage description for the access path selected in
+[Authorization](#authorization). Do not request broader access merely to simplify
+the setup path.
 
-| Key | Access Level |
-|---|---|
-| `NSCalendarsFullAccessUsageDescription` | Read + write events |
-| `NSCalendarsWriteOnlyAccessUsageDescription` | Direct write-only event creation |
-| `NSRemindersFullAccessUsageDescription` | Read + write reminders |
-
-On iOS 17+, an app that only presents `EKEventEditViewController` to let the
-person create an event does not need calendar authorization or calendar usage
-strings. Direct EventKit writes need write-only or full calendar access; any
-event read/fetch needs full calendar access. Reminders have only full access.
-
-> For apps also running on iOS 10 through iOS 16, include the legacy
-> `NSCalendarsUsageDescription` / `NSRemindersUsageDescription` keys. If using
-> EventKitUI on those systems, also include `NSContactsUsageDescription` when the
-> UI may need contact display names or avatars.
+The authorization-free system editor path needs no calendar usage string.
+Direct writes need write-only or full access; reads need full access. Reminders
+have only full access.
 
 ### Event Store
 
@@ -59,10 +60,14 @@ let eventStore = EKEventStore()
 
 ## Authorization
 
-iOS 17+ introduced granular access levels. Request the narrowest access that
-matches the feature. If the deployment target includes earlier OS versions,
-availability-guard the iOS 17+ methods and fall back to `requestAccess(to:)`
-only before iOS 17.
+Request the narrowest access that matches the feature. Apply the versioned
+request path in [Availability](#availability).
+
+| Key | Access Level |
+|---|---|
+| `NSCalendarsFullAccessUsageDescription` | Read + write events |
+| `NSCalendarsWriteOnlyAccessUsageDescription` | Direct write-only event creation |
+| `NSRemindersFullAccessUsageDescription` | Read + write reminders |
 
 ### Full Access to Events
 
@@ -77,12 +82,9 @@ need to read existing events.
 Call `try await eventStore.requestWriteOnlyAccessToEvents()` before direct
 EventKit writes that do not use `EKEventEditViewController`.
 
-With write-only access, EventKit can create events but cannot read calendars or
-events, including events the app created. Calendar reads return a virtual
-calendar and event fetches return no events.
-
-Use full access instead of write-only if the app must later query, verify,
-modify, or sync saved events.
+Write-only access can create events but cannot fetch calendars or events,
+including app-created events. Use full access for later query, verification,
+modification, or sync.
 
 ### Full Access to Reminders
 
@@ -138,10 +140,10 @@ event.structuredLocation = location
 
 ## Fetching Events
 
-Use a date-range predicate to query events. The `events(matching:)` method
-returns occurrences of recurring events expanded within the range. Fetching
-events requires full calendar access; write-only access returns no events.
-Event predicates are capped to a four-year span, and `events(matching:)` /
+After the full-access gate in [Authorization](#authorization), use a date-range
+predicate to query events. The `events(matching:)` method returns occurrences of
+recurring events expanded within the range. Event predicates are capped to a
+four-year span, and `events(matching:)` /
 `enumerateEvents(matching:using:)` are synchronous and return only committed
 events.
 
@@ -304,10 +306,9 @@ location-based reminder pattern.
 
 Present the system event editor for creating or editing events.
 
-On iOS 17+, `EKEventEditViewController` can let someone create an event without
-the app requesting calendar access. The editor runs out of process with its own
-calendar access, so do not inspect the dismissed controller to learn what was
-saved; refetch only if the app separately has full access.
+On the authorization-free path in [Availability](#availability), the editor runs
+out of process with its own calendar access. Do not inspect the dismissed
+controller to learn what was saved; refetch only with separate full access.
 
 ```swift
 import EventKitUI
@@ -391,23 +392,19 @@ Always re-fetch events after receiving this notification. Previously fetched
 `EKEvent`, `EKReminder`, and `EKCalendar` objects may be stale. The notification
 is posted on the main actor.
 
-On iOS 26+, you can also use the typed `EKEventStore.EventStoreChanged` /
-`.changed` notification message behind availability checks.
-
 ## Common Mistakes
 
-### DON'T: Use the deprecated requestAccess(to:) method
+### DON'T: Use legacy requestAccess(to:) on current systems
 
 ```swift
-// WRONG: Deprecated in iOS 17
+// WRONG: Legacy request API on current systems
 eventStore.requestAccess(to: .event) { granted, error in }
 
 // CORRECT: Use the granular async methods
 let granted = try await eventStore.requestFullAccessToEvents()
 ```
 
-On iOS 17+, `requestAccess(to: .event)` does not prompt and throws. Keep it only
-as an availability-guarded fallback for apps that still run on earlier systems.
+Keep it only in the compatibility fallback from [Availability](#availability).
 
 ### DON'T: Save events to a read-only calendar
 
@@ -467,16 +464,18 @@ try eventStore.save(event, span: .thisEvent)
 ## Review Checklist
 
 - [ ] Correct `Info.plist` usage description keys added for calendars and/or reminders
-- [ ] Authorization requested with iOS 17+ granular methods, with `requestAccess(to:)` only as a pre-iOS 17 fallback
+- [ ] Authorization follows the version split in [Availability](#availability)
 - [ ] Write-only calendar access used only for direct event creation, not event/calendar reads
 - [ ] Authorization status checked before fetching or saving
 - [ ] Full access required before any event or reminder fetch
 - [ ] Single `EKEventStore` instance reused across the app
 - [ ] Events saved to a writable calendar (`allowsContentModifications` checked)
 - [ ] Recurring event saves specify correct `EKSpan` (`.thisEvent` vs `.futureEvents`)
-- [ ] Batched saves followed by explicit `commit()`
+- [ ] Batched saves validate writable calendars, stage with `commit: false`,
+      call throwing `commit()`, and on failure `reset()` unsaved state, discard
+      every invalidated `EKObject`, then refetch or reconstruct before retry
 - [ ] `EKEventStoreChanged` notification observed to refresh stale data
-- [ ] iOS 26 typed `.changed` notification used only behind availability checks
+- [ ] Change observation uses the classic notification or guarded typed message per [Availability](#availability)
 - [ ] Timezone set explicitly for location-specific events
 - [ ] EKObjects not shared across different event store instances
 - [ ] EventKitUI delegates dismiss controllers in completion callbacks

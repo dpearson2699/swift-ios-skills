@@ -2,8 +2,8 @@
 
 ## Problem/Feature Description
 
-An iOS team plans to add MetricKit telemetry, but their draft has the subscriber created inside a SwiftUI dashboard view, implements only `didReceive(_ payloads: [MXMetricPayload])`, parses and uploads payloads before saving them, and ignores reports that may have arrived before the dashboard opens.
+An iOS team builds with the iOS 27 SDK but still deploys to iOS 26. Their draft creates `MetricManager` inside a SwiftUI dashboard, consumes only `metricReports`, uploads each report before saving it, and assumes `MetricManager.pastPayloads` can recover reports missed before the dashboard opens.
 
 ## Output Specification
 
-Create `metrickit-telemetry-plan.md` with corrected guidance and a concise Swift sketch where useful. Show the subscriber callback persisting raw payload JSON and then enqueueing out-of-band work; do not parse or upload from the callback itself. Mention the daily/non-immediate cadence of metric payloads. Focus on production ingestion behavior and avoid turning this into an Instruments tutorial.
+Create `metrickit-telemetry-plan.md` with corrected iOS 27 guidance and a concise Swift sketch where useful. Cover the lifetime and consumption rules for both modern report sequences, durable-first persistence, and upload isolation. Explain the documented modern backfill limitation and provide a separate availability-gated iOS 26 compatibility path. Distinguish metric and diagnostic delivery behavior. Focus on production ingestion and avoid turning this into an Instruments tutorial.

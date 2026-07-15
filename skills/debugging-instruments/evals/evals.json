@@ -38,7 +38,7 @@
       "expectations": [
         "Keeps Instruments capture guidance in scope, such as SwiftUI or Animation Hitches with Time Profiler on device.",
         "Routes SwiftUI code-level remediation patterns to the swiftui-performance skill.",
-        "Routes MetricKit subscriber setup, MXDiagnosticPayload processing, or MXHangDiagnostic ingestion details to the metrickit skill.",
+        "Routes MetricManager report-sequence setup, DiagnosticReport processing, or HangDiagnostic ingestion details to the metrickit skill, including legacy compatibility when required.",
         "Routes Swift Testing or XCTest benchmark organization details to the swift-testing skill.",
         "Mentions OSSignposter or signposts as useful instrumentation for correlating app intervals with Instruments.",
         "Does not collapse the sibling skills by giving a full MetricKit ingestion implementation or full SwiftUI refactor recipe."

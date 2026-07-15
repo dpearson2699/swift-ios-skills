@@ -11,6 +11,7 @@ that exceed the main skill file's scope.
 - [Undo/Redo Support](#undoredo-support)
 - [Thumbnail Generation](#thumbnail-generation)
 - [Drawing Comparison and Scoring](#drawing-comparison-and-scoring)
+- [Constructing Strokes Programmatically](#constructing-strokes-programmatically)
 - [Content Version Management](#content-version-management)
 - [Advanced SwiftUI Wrapper](#advanced-swiftui-wrapper)
 
@@ -206,6 +207,32 @@ func strokeSimilarity(
 
     return Double(matchCount) / Double(refPoints.count)
 }
+```
+
+## Constructing Strokes Programmatically
+
+Use these constructors only when an app generates ink rather than receiving it
+from `PKCanvasView`:
+
+```swift
+let points = [
+    PKStrokePoint(
+        location: CGPoint(x: 0, y: 0), timeOffset: 0,
+        size: CGSize(width: 5, height: 5), opacity: 1,
+        force: 0.5, azimuth: 0, altitude: .pi / 2
+    ),
+    PKStrokePoint(
+        location: CGPoint(x: 100, y: 100), timeOffset: 0.1,
+        size: CGSize(width: 5, height: 5), opacity: 1,
+        force: 0.5, azimuth: 0, altitude: .pi / 2
+    )
+]
+let path = PKStrokePath(controlPoints: points, creationDate: Date())
+let stroke = PKStroke(
+    ink: PKInk(.pen, color: .black), path: path,
+    transform: .identity, mask: nil
+)
+let drawing = PKDrawing(strokes: [stroke])
 ```
 
 ## Content Version Management

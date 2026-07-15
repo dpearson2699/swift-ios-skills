@@ -11,12 +11,11 @@ mxSignpost(.begin, log: log, name: "DataFetch", signpostID: signpostID)
 // work
 mxSignpost(.end, log: log, name: "DataFetch", signpostID: signpostID)
 
-let taskID = MXLaunchTaskID("com.example.restore")
-MXMetricManager.shared.extendLaunchMeasurement(forTaskID: taskID)
-restoreStateOnBackgroundQueue()
-MXMetricManager.shared.finishExtendedLaunchMeasurement(forTaskID: taskID)
+MXMetricManager.extendLaunchMeasurement(forTaskID: "com.example.restore")
+await restoreState()
+MXMetricManager.finishExtendedLaunchMeasurement(forTaskID: "com.example.restore")
 ```
 
 ## Output Specification
 
-Create `metrickit-api-corrections.md` explaining what is wrong and showing the corrected MetricKit guidance. Use MetricKit APIs rather than OSLog signpost substitutes. The corrected signpost sample must not allocate or pass any signpost ID; show `mxSignpost(.begin, log:name:)` and `mxSignpost(.end, log:name:)` with the advanced parameters left at their defaults. Name where custom MetricKit signpost metrics appear. In the extended launch section, explicitly mention main-thread calls, early state-restoration or first-scene-active timing, overlapping task windows, the maximum 16-task limit, and finishing every started task.
+Create `metrickit-api-corrections.md` for an app built with the iOS 27 SDK. Show the current `MetricManager` log-handle and `mxSignpost` pattern without allocating or passing a signpost ID, and name the current result surface. Replace the manual launch pair with the current tracked-launch API and explain its isolation, result/error, and tracking-error behavior. Identify which draft APIs belong only in an availability-gated iOS 26 compatibility branch.

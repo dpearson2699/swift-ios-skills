@@ -5,11 +5,8 @@ description: "Build CarPlay-enabled apps using the CarPlay framework. Use when c
 
 # CarPlay
 
-Build apps that display on the vehicle's CarPlay screen using the CarPlay
-framework's template-based UI system. Covers scene lifecycle, template
-types, navigation guidance, audio playback, communication, point-of-interest
-categories, entitlement setup, and simulator testing.
-Targets Swift 6.3 / iOS 26+.
+Build category-entitled, template-based CarPlay apps for the vehicle display.
+Scope: Swift 6.3, iOS 26+.
 
 See [references/carplay-patterns.md](references/carplay-patterns.md) for extended patterns including full
 navigation sessions, dashboard scenes, and advanced template composition.
@@ -37,9 +34,9 @@ CarPlay-specific validation here.
 
 ## Entitlements and Setup
 
-CarPlay requires a category-specific entitlement granted by Apple. Request it
-at [developer.apple.com/contact/carplay](https://developer.apple.com/contact/carplay)
-and agree to the CarPlay Entitlement Addendum.
+Request the category-specific entitlement from
+[Apple's CarPlay entitlement form](https://developer.apple.com/contact/carplay),
+accept the addendum, then provision the approved category key below.
 
 ### Entitlement Keys by Category
 

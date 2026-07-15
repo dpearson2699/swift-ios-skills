@@ -120,8 +120,18 @@ Manage the full lifecycle of an EV charging session with guidance tracking.
 Use only a `guidanceToken` returned by EnergyKit for the venue and device that
 requested guidance. Do not synthesize placeholder tokens.
 
+Record `.begin` and `.end`, a steady active sample about every 15 minutes, and
+additional active samples for user actions, pauses, new guidance, or rapid power
+changes. Submit promptly; use the queue to survive failures and bounded retries,
+not to hold events for a long batch.
+
+The iOS/iPadOS 27 branch requires the iOS 27 SDK. It uses
+`ElectricalLoadDevice`; the `deviceID:` branch exists only for 26.x runtimes.
+
 ```swift
 import EnergyKit
+import Foundation
+import Observation
 
 @Observable
 @MainActor
@@ -133,12 +143,15 @@ final class EVChargingManager {
     var totalEnergy: Double = 0   // kWh
 
     private let deviceID: String
+    private let deviceName: String
     private var venue: EnergyVenue?
     private var guidanceToken: UUID?
     private var pendingEvents: [ElectricVehicleLoadEvent] = []
+    private var isFlushing = false
 
-    init(deviceID: String) {
+    init(deviceID: String, deviceName: String) {
         self.deviceID = deviceID
+        self.deviceName = deviceName
     }
 
     func setVenue(_ venue: EnergyVenue) {
@@ -150,7 +163,7 @@ final class EVChargingManager {
     }
 
     func startCharging(stateOfCharge: Int) async throws {
-        guard let venue else { throw EVError.noVenue }
+        guard venue != nil else { throw EVError.noVenue }
 
         let sessionID = UUID()
         currentSessionID = sessionID
@@ -163,7 +176,8 @@ final class EVChargingManager {
             power: 0,
             energy: 0
         )
-        pendingEvents = [event]
+        pendingEvents.append(event)
+        try await flushPendingEvents()
     }
 
     func updateCharging(
@@ -171,7 +185,7 @@ final class EVChargingManager {
         power: Double,
         energy: Double
     ) async throws {
-        guard let venue, isCharging else { return }
+        guard venue != nil, isCharging else { return }
 
         self.stateOfCharge = stateOfCharge
         self.currentPower = power
@@ -184,14 +198,11 @@ final class EVChargingManager {
             energy: energy
         )
         pendingEvents.append(event)
-
-        if pendingEvents.count >= 4 {
-            try await flushPendingEvents()
-        }
+        try await flushPendingEvents()
     }
 
     func stopCharging() async throws {
-        guard let venue, isCharging else { return }
+        guard venue != nil, isCharging else { return }
 
         let event = try makeEvent(
             sessionState: .end,
@@ -207,11 +218,18 @@ final class EVChargingManager {
     }
 
     func flushPendingEvents() async throws {
-        guard let venue, !pendingEvents.isEmpty else { return }
+        guard !isFlushing, let venue, !pendingEvents.isEmpty else { return }
+        isFlushing = true
+        defer { isFlushing = false }
 
-        let events = pendingEvents
-        pendingEvents.removeAll()
-        try await venue.submitEvents(events)
+        while !pendingEvents.isEmpty {
+            // Calls can append while submitEvents suspends. Snapshot the prefix,
+            // then remove only that acknowledged prefix after success.
+            let submittedCount = pendingEvents.count
+            let events = Array(pendingEvents.prefix(submittedCount))
+            try await submitWithRateLimitRetry(events, to: venue)
+            pendingEvents.removeFirst(submittedCount)
+        }
     }
 
     private func makeEvent(
@@ -241,12 +259,45 @@ final class EVChargingManager {
             energy: Measurement(value: energy, unit: .kilowattHours)
         )
 
+        if #available(iOS 27.0, iPadOS 27.0, *) {
+            let device = ElectricalLoadDevice(
+                id: deviceID,
+                name: deviceName,
+                type: .electricVehicle
+            )
+            return ElectricVehicleLoadEvent(
+                timestamp: Date(), measurement: measurement,
+                session: session, device: device
+            )
+        }
+
+        // iOS/iPadOS 26 compatibility; deprecated in the iOS 27 SDK.
         return ElectricVehicleLoadEvent(
-            timestamp: Date(),
-            measurement: measurement,
-            session: session,
-            deviceID: deviceID
+            timestamp: Date(), measurement: measurement,
+            session: session, deviceID: deviceID
         )
+    }
+
+    private func submitWithRateLimitRetry(
+        _ events: [ElectricVehicleLoadEvent],
+        to venue: EnergyVenue
+    ) async throws {
+        var retryCount = 0
+
+        while true {
+            do {
+                try await venue.submitEvents(events)
+                return
+            } catch let error as EnergyKitError {
+                guard case .rateLimitExceeded = error, retryCount < 2 else {
+                    throw error
+                }
+                retryCount += 1
+                try await Task.sleep(
+                    for: .seconds(pow(2.0, Double(retryCount)))
+                )
+            }
+        }
     }
 
     enum EVError: Error {
@@ -264,12 +315,13 @@ Submit events when the heating or cooling stage changes, and use the real
 guidance token that was in effect for that venue.
 Treat heat stage 1 -> heat stage 2, heat -> cooling, cooling -> idle, and
 equipment stop as distinct load events instead of one summarized session row.
-For devices that emit frequent stage/runtime samples, buffer events and submit
-periodically or at the end of a session, while still recording significant state
-changes as they occur.
+Submit each transition promptly and apply the EV manager's acknowledged-prefix
+queue when the app needs durable delivery across transient failures.
 
 ```swift
 import EnergyKit
+import Foundation
+import Observation
 
 @Observable
 @MainActor
@@ -279,11 +331,13 @@ final class HVACManager {
     var sessionID: UUID?
 
     private let deviceID: String
+    private let deviceName: String
     private var venue: EnergyVenue?
     private var guidanceToken: UUID?
 
-    init(deviceID: String) {
+    init(deviceID: String, deviceName: String) {
         self.deviceID = deviceID
+        self.deviceName = deviceName
     }
 
     func configure(venue: EnergyVenue, guidanceToken: UUID) {
@@ -298,7 +352,7 @@ final class HVACManager {
         isRunning = true
 
         let event = try makeEvent(state: .begin, stage: stage)
-        try await venue.submitEvents([event])
+        try await submitWithRateLimitRetry([event], to: venue)
     }
 
     func updateStage(_ stage: Int) async throws {
@@ -306,14 +360,14 @@ final class HVACManager {
         currentStage = stage
 
         let event = try makeEvent(state: .active, stage: stage)
-        try await venue.submitEvents([event])
+        try await submitWithRateLimitRetry([event], to: venue)
     }
 
     func stop() async throws {
         guard let venue, isRunning else { return }
 
         let event = try makeEvent(state: .end, stage: 0)
-        try await venue.submitEvents([event])
+        try await submitWithRateLimitRetry([event], to: venue)
 
         isRunning = false
         sessionID = nil
@@ -339,12 +393,45 @@ final class HVACManager {
 
         let measurement = ElectricHVACLoadEvent.ElectricalMeasurement(stage: stage)
 
+        if #available(iOS 27.0, iPadOS 27.0, *) {
+            let device = ElectricalLoadDevice(
+                id: deviceID,
+                name: deviceName,
+                type: .hvac
+            )
+            return ElectricHVACLoadEvent(
+                timestamp: Date(), measurement: measurement,
+                session: session, device: device
+            )
+        }
+
+        // iOS/iPadOS 26 compatibility; deprecated in the iOS 27 SDK.
         return ElectricHVACLoadEvent(
-            timestamp: Date(),
-            measurement: measurement,
-            session: session,
-            deviceID: deviceID
+            timestamp: Date(), measurement: measurement,
+            session: session, deviceID: deviceID
         )
+    }
+
+    private func submitWithRateLimitRetry(
+        _ events: [ElectricHVACLoadEvent],
+        to venue: EnergyVenue
+    ) async throws {
+        var retryCount = 0
+
+        while true {
+            do {
+                try await venue.submitEvents(events)
+                return
+            } catch let error as EnergyKitError {
+                guard case .rateLimitExceeded = error, retryCount < 2 else {
+                    throw error
+                }
+                retryCount += 1
+                try await Task.sleep(
+                    for: .seconds(pow(2.0, Double(retryCount)))
+                )
+            }
+        }
     }
 
     enum HVACError: Error {

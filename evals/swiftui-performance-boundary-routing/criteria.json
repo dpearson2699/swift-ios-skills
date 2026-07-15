@@ -19,7 +19,7 @@
     },
     {
       "name": "MetricKit handoff",
-      "description": "Routes MXDiagnosticPayload ingestion, subscribers, and production hang telemetry pipelines to metrickit while keeping Instruments capture in scope.",
+      "description": "Routes MetricManager report-sequence ingestion, DiagnosticReport processing, and production hang telemetry pipelines to metrickit while keeping Instruments capture in scope and legacy compatibility isolated.",
       "max_score": 15
     },
     {

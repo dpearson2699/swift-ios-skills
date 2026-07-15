@@ -5,11 +5,9 @@ description: "Integrate Game Center features using GameKit. Use when authenticat
 
 # GameKit
 
-Integrate Game Center services into iOS 26+ games using GameKit and Swift 6.3:
-authentication, leaderboards, achievements, multiplayer matchmaking, access
-point, dashboard, challenges, and saved games. Keep SpriteKit rendering,
-SceneKit 3D, TabletopKit board logic, and full SharePlay group-activity design
-in their framework domains; use GameKit only for Game Center handoff points.
+Use GameKit for Game Center authentication, competition, matchmaking, social
+surfaces, and saved-game handoffs; keep rendering, board logic, and full
+SharePlay group-activity design in their owning framework skills.
 
 ## Contents
 
@@ -479,7 +477,6 @@ func returnToMenu() {
 - [ ] Turn-based participants have outcomes set before `endMatchInTurn`
 - [ ] Invitation or turn listener registered with `GKLocalPlayer.local.register(_:)`
 - [ ] Data mode chosen appropriately: `.reliable` for state, `.unreliable` for frequent updates
-- [ ] New voice/social audio uses SharePlay; legacy `GKVoiceChat` has `NSMicrophoneUsageDescription`
 - [ ] Error handling for all async GameKit calls
 
 ## References

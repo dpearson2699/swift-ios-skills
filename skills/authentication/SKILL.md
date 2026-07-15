@@ -84,20 +84,13 @@ extension LoginViewController: ASAuthorizationControllerDelegate {
         controller: ASAuthorizationController,
         didCompleteWithError error: any Error
     ) {
-        let authError = error as? ASAuthorizationError
-        switch authError?.code {
-        case .canceled:
-            break  // User dismissed
+        switch (error as? ASAuthorizationError)?.code {
+        case .canceled, .notInteractive:
+            break
         case .failed:
             showError("Authorization failed")
-        case .invalidResponse:
-            showError("Invalid response")
-        case .notHandled:
-            showError("Not handled")
-        case .notInteractive:
-            break  // Non-interactive request failed -- expected for silent checks
         default:
-            showError("Unknown error")
+            showError("Authorization failed: \(error.localizedDescription)")
         }
     }
 }
@@ -105,36 +98,14 @@ extension LoginViewController: ASAuthorizationControllerDelegate {
 
 ## Credential Handling
 
-`ASAuthorizationAppleIDCredential` properties and their behavior:
+| Credential data | Required handling |
+|---|---|
+| `user` | Persist this stable, per-team identifier for credential-state checks. |
+| `email`, `fullName` | These optional values arrive only on first authorization; cache them immediately. |
+| `identityToken`, `authorizationCode` | Send them to the server for validation or exchange; never trust them as client-side proof. |
 
-| Property | Type | First Auth | Subsequent Auth |
-|---|---|---|---|
-| `user` | `String` | Always | Always |
-| `email` | `String?` | Provided if requested | `nil` |
-| `fullName` | `PersonNameComponents?` | Provided if requested | `nil` |
-| `identityToken` | `Data?` | JWT encoded as UTF-8 data | JWT encoded as UTF-8 data |
-| `authorizationCode` | `Data?` | Short-lived code | Short-lived code |
-| `realUserStatus` | `ASUserDetectionStatus` | Fraud-prevention signal | Do not rely on later attempts |
-
-**Critical:** `email` and `fullName` are provided ONLY on the first
-authorization. Cache them immediately during the initial sign-up flow. If the
-user later deletes and re-adds the app, these values will not be returned.
-
-```swift
-func handleCredential(_ credential: ASAuthorizationAppleIDCredential) {
-    // Always persist the user identifier
-    let userID = credential.user
-
-    // Cache name and email IMMEDIATELY -- only available on first auth
-    if let fullName = credential.fullName {
-        let name = PersonNameComponentsFormatter().string(from: fullName)
-        UserProfile.saveName(name)  // Persist to your backend
-    }
-    if let email = credential.email {
-        UserProfile.saveEmail(email)  // Persist to your backend
-    }
-}
-```
+Treat `realUserStatus` only as a fraud-prevention signal, not authentication
+proof.
 
 ## Credential State Checking
 
@@ -189,35 +160,11 @@ NotificationCenter.default.addObserver(
 The `identityToken` is a JWT. Send it to your server for validation --
 never trust it client-side alone.
 
-```swift
-func sendTokenToServer(credential: ASAuthorizationAppleIDCredential) async throws {
-    guard let tokenData = credential.identityToken,
-          let token = String(data: tokenData, encoding: .utf8),
-          let authCodeData = credential.authorizationCode,
-          let authCode = String(data: authCodeData, encoding: .utf8) else {
-        throw AuthError.missingToken
-    }
-
-    var request = URLRequest(url: URL(string: "https://api.example.com/auth/apple")!)
-    request.httpMethod = "POST"
-    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-    request.httpBody = try JSONEncoder().encode(
-        ["identityToken": token, "authorizationCode": authCode]
-    )
-
-    let (data, response) = try await URLSession.shared.data(for: request)
-    guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-        throw AuthError.serverValidationFailed
-    }
-    let session = try JSONDecoder().decode(SessionResponse.self, from: data)
-    // Store session token in Keychain -- see references/keychain-biometric.md
-    try KeychainHelper.save(session.accessToken, forKey: "accessToken")
-}
-```
-
 Server-side, validate the JWT against Apple's public keys at
 `https://appleid.apple.com/auth/keys` (JWKS). Verify: `iss` is
-`https://appleid.apple.com`, `aud` matches your bundle ID, `exp` not passed.
+`https://appleid.apple.com`, `aud` matches your bundle ID, and `exp` has not
+passed. Exchange the short-lived authorization code on the server and store
+the resulting app session token in Keychain.
 
 ## Existing Account Setup Flows
 
@@ -246,55 +193,15 @@ silently and show your normal login UI.
 
 ## Passkeys
 
-Use passkeys for passwordless WebAuthn-style registration and sign-in. The
-app must have an Associated Domains entitlement for the relying party domain
-using the `webcredentials:` service; passkey requests fail for services the app
-has not configured as associated domains.
+Use passkeys only for a relying-party domain configured with a `webcredentials:`
+Associated Domain and AASA entry. Registration and assertion each require a
+fresh server challenge, an `ASAuthorizationPlatformPublicKeyCredentialProvider`,
+an authorization controller with an active presentation anchor, and server-side
+verification before issuing a session.
 
-For platform passkeys synced through iCloud Keychain, request a server-provided
-challenge and create requests with `ASAuthorizationPlatformPublicKeyCredentialProvider`:
-
-```swift
-let challenge: Data = try await server.registrationChallenge()
-let userID: Data = try await server.passkeyUserID()
-let provider = ASAuthorizationPlatformPublicKeyCredentialProvider(
-    relyingPartyIdentifier: "example.com"
-)
-let request = provider.createCredentialRegistrationRequest(
-    challenge: challenge,
-    name: username,
-    userID: userID
-)
-
-let controller = ASAuthorizationController(authorizationRequests: [request])
-controller.delegate = self
-controller.presentationContextProvider = self
-controller.performRequests()
-```
-
-For sign-in, use `createCredentialAssertionRequest(challenge:)` with a fresh
-server challenge, then send the resulting registration or assertion object to
-the relying-party server for verification:
-
-```swift
-let request = provider.createCredentialAssertionRequest(challenge: challenge)
-
-switch authorization.credential {
-case let registration as ASAuthorizationPlatformPublicKeyCredentialRegistration:
-    try await server.finishPasskeyRegistration(registration)
-case let assertion as ASAuthorizationPlatformPublicKeyCredentialAssertion:
-    try await server.finishPasskeySignIn(assertion)
-default:
-    break
-}
-```
-
-For inline passkey suggestions, set the username field's `textContentType` to
-`.username`, include the passkey assertion request in the controller, and call
-`performAutoFillAssistedRequests()`. Use `ASAuthorizationSecurityKeyPublicKeyCredentialProvider`
-only when the user must authenticate with a physical security key. See
-[references/passkeys.md](references/passkeys.md) for complete registration,
-assertion, AutoFill, and security-key patterns.
+Load [references/passkeys.md](references/passkeys.md) for the canonical
+registration, assertion, result handling, AutoFill-assisted, and physical
+security-key flows.
 
 ## ASWebAuthenticationSession (OAuth)
 
@@ -344,43 +251,9 @@ only when the provider flow should avoid shared browser cookies.
 
 ## Password AutoFill Credentials
 
-Use `ASAuthorizationPasswordProvider` to offer saved keychain credentials
-alongside Sign in with Apple:
-
-```swift
-func performSignIn() {
-    let appleIDRequest = ASAuthorizationAppleIDProvider().createRequest()
-    appleIDRequest.requestedScopes = [.fullName, .email]
-
-    let passwordRequest = ASAuthorizationPasswordProvider().createRequest()
-
-    let controller = ASAuthorizationController(
-        authorizationRequests: [appleIDRequest, passwordRequest]
-    )
-    controller.delegate = self
-    controller.presentationContextProvider = self
-    controller.performRequests()
-}
-
-// In delegate:
-func authorizationController(
-    controller: ASAuthorizationController,
-    didCompleteWithAuthorization authorization: ASAuthorization
-) {
-    switch authorization.credential {
-    case let appleIDCredential as ASAuthorizationAppleIDCredential:
-        handleAppleIDLogin(appleIDCredential)
-    case let passwordCredential as ASPasswordCredential:
-        // User selected a saved password from keychain
-        signInWithPassword(
-            username: passwordCredential.user,
-            password: passwordCredential.password
-        )
-    default:
-        break
-    }
-}
-```
+Offer `ASAuthorizationPasswordProvider` alongside Sign in with Apple using the
+single controller in [Existing Account Setup Flows](#existing-account-setup-flows).
+Handle `ASPasswordCredential` in that controller's delegate.
 
 Set `textContentType` on text fields for AutoFill to work:
 
@@ -395,27 +268,8 @@ Use `LAContext` from LocalAuthentication for local re-authentication before
 showing account settings or starting sensitive actions. Do not treat a returned
 `Bool` as proof to unlock a stored secret; protect secrets with Keychain access
 control instead. See [references/keychain-biometric.md](references/keychain-biometric.md)
-for `SecAccessControl` and `.biometryCurrentSet` patterns.
-
-```swift
-import LocalAuthentication
-
-func authenticateWithBiometrics() async throws -> Bool {
-    let context = LAContext()
-    var error: NSError?
-
-    guard context.canEvaluatePolicy(
-        .deviceOwnerAuthenticationWithBiometrics, error: &error
-    ) else {
-        throw AuthError.biometricsUnavailable
-    }
-
-    return try await context.evaluatePolicy(
-        .deviceOwnerAuthenticationWithBiometrics,
-        localizedReason: "Sign in to your account"
-    )
-}
-```
+for the canonical `LAContext`, fallback, `SecAccessControl`, and
+`.biometryCurrentSet` patterns.
 
 **Required:** Add `NSFaceIDUsageDescription` to Info.plist. Missing this
 key crashes on Face ID devices.
@@ -434,9 +288,10 @@ protected secrets.
 ## SwiftUI SignInWithAppleButton
 
 Use `SignInWithAppleButton` in SwiftUI views when the login surface is SwiftUI.
-Request `.fullName` and `.email`, handle `.success` and `.failure`, downcast to
-`ASAuthorizationAppleIDCredential`, and send the credential through the same
-server-validation flow as UIKit. Style with `.signInWithAppleButtonStyle(...)`.
+Request `.fullName` and `.email`, downcast a successful result to
+`ASAuthorizationAppleIDCredential`, and pass it to the shared
+[Token Validation](#token-validation) flow. Style with
+`.signInWithAppleButtonStyle(...)`.
 
 ## Common Mistakes
 

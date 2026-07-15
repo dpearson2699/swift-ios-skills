@@ -229,9 +229,7 @@ Do not treat entity hit tests as substitutes for ARKit surface raycasts.
 ## Gestures and Interaction
 
 For gesture-based entity interaction, add `CollisionComponent` for the hittable
-shape and `InputTargetComponent` for input targeting. Use
-`AccessibilityComponent` for entity labels/actions. Hand detailed SwiftUI gesture
-composition and VoiceOver/Switch Control policy to sibling skills.
+shape and `InputTargetComponent` for input targeting.
 
 ### Drag Gesture on Entities
 
@@ -268,11 +266,6 @@ struct DraggableARView: View {
 }
 ```
 
-For selection, `CollisionComponent` is the mechanism that makes an entity
-hittable by `RealityViewCameraContent.hitTest`, `SpatialTapGesture`, or
-`targetedToAnyEntity()`. Pair it with `InputTargetComponent`; this enables
-virtual entity picking, not ARKit surface detection.
-
 ## Scene Understanding
 
 ### Per-Frame Updates
@@ -288,15 +281,14 @@ On visionOS, ARKit provides a different API surface with `ARKitSession`,
 types are not available on iOS. On iOS, RealityKit handles world tracking
 automatically through `RealityViewCameraContent`.
 
-For iOS architecture or migration notes, explicitly name the iOS RealityKit path and handoffs:
+For iOS architecture or migration notes, gate AR with
+`ARWorldTrackingConfiguration.isSupported`, host content with
+`RealityViewCameraContent`, and build scenes from `Entity`/`ModelEntity` placed
+with `AnchorEntity`.
 
-- Gate AR with `ARWorldTrackingConfiguration.isSupported`.
-- Host content with `RealityViewCameraContent`.
-- Build scenes from `Entity`/`ModelEntity` and place with `AnchorEntity`.
-- Include a compact `Handoffs` line in architecture/review notes:
-  `CollisionComponent` + `InputTargetComponent` handle RealityKit interaction;
-  `AccessibilityComponent` handles RealityKit entity accessibility metadata;
-  detailed SwiftUI gestures and VoiceOver/Switch Control policy belong to siblings.
+**Handoffs:** `CollisionComponent` + `InputTargetComponent` handle RealityKit
+interaction; `AccessibilityComponent` handles entity accessibility metadata;
+detailed SwiftUI gestures and VoiceOver/Switch Control policy belong to siblings.
 
 Treat existing `SCNView`/`SCNNode` work as either a separate SceneKit path or an
 explicit migration to RealityKit, not a mixed scene graph.
@@ -330,25 +322,9 @@ RealityView { content in
 
 ### DON'T: Forget collision and input target components for interactive entities
 
-Gestures only work on entities that have both `CollisionComponent` and
-`InputTargetComponent`. Without them, taps and drags pass through.
-
-```swift
-// WRONG -- entity ignores gestures
-let box = ModelEntity(mesh: .generateBox(size: 0.1))
-content.add(box)
-
-// CORRECT -- add collision and input components
-let box = ModelEntity(
-    mesh: .generateBox(size: 0.1),
-    materials: [SimpleMaterial(color: .red, isMetallic: false)]
-)
-box.components.set(CollisionComponent(
-    shapes: [.generateBox(size: [0.1, 0.1, 0.1])]
-))
-box.components.set(InputTargetComponent())
-content.add(box)
-```
+Interactive entities need both components shown in
+[Gestures and Interaction](#gestures-and-interaction); without them, taps and
+drags pass through.
 
 ### DON'T: Create new entities in the update closure
 
@@ -429,10 +405,8 @@ struct ARContainerView: View {
 - [ ] `arkit` required-device capability added when AR is the app's core purpose
 - [ ] 3D models loaded asynchronously in the `make` closure
 - [ ] Entities created in `make`, modified in `update` (not created in `update`)
-- [ ] Interaction notes say `CollisionComponent` makes entities hittable/pickable and pairs with `InputTargetComponent`
-- [ ] Boundary/review notes include a `Handoffs` line naming `AccessibilityComponent` and routing detailed SwiftUI/accessibility policy to siblings
-- [ ] Entity hit tests, `RealityViewCameraContent.ray(...)`, and ARKit real-world surface raycasts are not conflated
-- [ ] ARKit surface raycast placements use `ARSession.raycast(_:)` and `AnchorEntity(raycastResult:)`
+- [ ] Interaction prerequisites and sibling handoffs follow the Gestures section
+- [ ] Entity hit tests, camera rays, and ARKit surface raycasts follow the Raycasting distinctions
 - [ ] `SceneEvents.Update` subscriptions used for per-frame logic (not SwiftUI timers)
 - [ ] Large scenes use `ModelEntity(named:)` async loading, not `Entity.load(named:)`
 - [ ] Anchor entities target appropriate surface types for the use case

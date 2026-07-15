@@ -273,54 +273,29 @@ extension AudioSourceTracker {
 
 ## Error Recovery Patterns
 
-### Retry with Backoff
+### Error Disposition
 
-Handle transient failures during container-app registration:
+Classify the error before deciding whether another operation is safe:
 
-```swift
-func registerWithRetry(
-    _ accessory: ASAccessory,
-    configuration: AccessoryControlDevice.Configuration,
-    maxAttempts: Int = 3
-) async throws {
-    var lastError: Error?
+| Error | Disposition |
+|---|---|
+| `.accessoryNotCapable` | Remove or correct the unsupported capability; repeating the request cannot add hardware support. |
+| `.invalidRequest` | Correct the request parameters before constructing another request. |
+| `.invalidated` | Discard the device handle and notify the container app to re-evaluate registration where appropriate. |
+| `.unknown` | Log and surface or propagate the failure; do not assume it is transient. |
+| `@unknown default` | Preserve the error and fail safely until its semantics are known. |
 
-    for attempt in 0..<maxAttempts {
-        do {
-            try await AccessoryControlDevice.register(accessory, configuration)
-            return
-        } catch let error as AccessoryControlDevice.Error {
-            lastError = error
-
-            switch error {
-            case .accessoryNotCapable:
-                // Hardware limitation, do not retry
-                throw error
-            case .invalidRequest:
-                // Bad parameters, do not retry
-                throw error
-            case .invalidated, .unknown:
-                // Potentially transient, retry with backoff
-                let delay = Duration.seconds(Int64(1 << attempt))
-                try await Task.sleep(for: delay)
-            @unknown default:
-                throw error
-            }
-        }
-    }
-
-    if let lastError { throw lastError }
-}
-```
+Only retry when independent evidence identifies a transient external condition;
+the framework error cases themselves do not document one.
 
 ### Invalidation Recovery
 
-When an app-extension update sees invalidation, stop using that device handle
-and coordinate with the container app to register the accessory again:
+When an app-extension update sees invalidation, discard that device handle and
+notify the container app to re-evaluate whether registration is appropriate:
 
 ```swift
 enum AudioAccessoryUpdateRecovery {
-    case needsContainerRegistration(ASAccessory)
+    case needsContainerRegistrationEvaluation(ASAccessory)
 }
 
 func updateOrRequestRegistration(
@@ -332,7 +307,7 @@ func updateOrRequestRegistration(
         try await device.update(config)
         return nil
     } catch AccessoryControlDevice.Error.invalidated {
-        return .needsContainerRegistration(accessory)
+        return .needsContainerRegistrationEvaluation(accessory)
     }
 }
 ```

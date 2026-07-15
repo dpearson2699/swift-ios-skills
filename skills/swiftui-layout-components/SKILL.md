@@ -147,8 +147,6 @@ ScrollView {
 }
 ```
 
-See [references/scrollview.md](references/scrollview.md) for full `ScrollPosition` patterns, including scroll-to-id, user-scroll detection, paged primary/detail reveal surfaces, continuous progress, and zoom/crop interaction conflicts.
-
 **`safeAreaInset(edge:)`** pins content (input bars, toolbars) above the keyboard without affecting scroll layout.
 
 **iOS 26 additions:**
@@ -156,7 +154,9 @@ See [references/scrollview.md](references/scrollview.md) for full `ScrollPositio
 - `.backgroundExtensionEffect()` -- mirror/blur at safe area edges (use sparingly, one per screen)
 - `.safeAreaBar(edge:)` -- attach bar views that integrate with scroll effects
 
-See [references/scrollview.md](references/scrollview.md) for full scroll patterns and iOS 26 edge effects.
+See [references/scrollview.md](references/scrollview.md) for full
+`ScrollPosition`, paged reveal, zoom/crop conflict, and iOS 26 edge-effect
+patterns.
 
 ## Form and Controls
 
@@ -194,29 +194,6 @@ Use `@FocusState` to manage keyboard focus in input-heavy forms. Wrap in `Naviga
 | `TextField` | Text input with `.keyboardType`, `.textInputAutocapitalization` |
 
 Bind controls directly to `@State`, `@Binding`, or `@AppStorage`. Group related controls in `Form` sections. Use `.disabled(...)` to reflect locked or inherited settings. Use `Label` inside toggles to combine icon + text when it adds clarity.
-
-```swift
-// Toggle sections
-Form {
-  Section("Notifications") {
-    Toggle("Mentions", isOn: $preferences.notificationsMentionsEnabled)
-    Toggle("Follows", isOn: $preferences.notificationsFollowsEnabled)
-  }
-}
-
-// Slider with value text
-Section("Font Size") {
-  Slider(value: $fontSizeScale, in: 0.5...1.5, step: 0.1)
-  Text("Scale: \(String(format: "%.1f", fontSizeScale))")
-}
-
-// Picker for enums
-Picker("Default Visibility", selection: $visibility) {
-  ForEach(Visibility.allCases, id: \.self) { option in
-    Text(option.title).tag(option)
-  }
-}
-```
 
 Avoid `.pickerStyle(.segmented)` for large sets; use menu or inline styles. Don't hide labels for sliders; always show context.
 
@@ -306,19 +283,14 @@ For modal routing, sheet detents, and full-screen presentation policy, hand off 
 
 ## Common Mistakes
 
-1. Using non-lazy stacks for large collections -- causes all children to render immediately
-2. Placing `GeometryReader` inside lazy containers -- defeats lazy loading
-3. Using array indices as `ForEach` IDs -- causes incorrect diffing and UI bugs
-4. Nesting scroll views of the same axis -- causes gesture conflicts
-5. Heavy custom layouts inside `List` rows -- use `ScrollView` + `LazyVStack` instead
-6. Missing `.contentShape(Rectangle())` on tappable rows -- tap area is text-only
-7. Hard-coding frame dimensions for sheets -- use `.presentationSizing` instead
-8. Running searches on empty strings -- always guard against empty queries
-9. Mixing `List` and `ScrollView` in the same hierarchy -- gesture conflicts
-10. Using `.pickerStyle(.segmented)` for large option sets -- use menu or inline styles
-11. Hard-coding `spacing:` on stacks and grids by default -- omit to get platform-adaptive spacing; only specify for intentional tight (0–4pt) or wide gaps
-12. Driving one scroll reveal with offset booleans plus a parallel drag gesture -- derive one normalized progress value from scroll geometry
-13. Writing raw scroll geometry into broad app state or changing measured page geometry from that value -- keep per-frame invalidation local and avoid feedback loops
+1. Placing `GeometryReader` inside lazy containers defeats lazy loading; use `.onGeometryChange` when dimensions are needed.
+2. Array indices make unstable `ForEach` IDs and produce incorrect diffing.
+3. Same-axis nested scroll views create gesture conflicts.
+4. Heavy custom or expanding `List` rows belong in `ScrollView` + `LazyVStack`.
+5. Large option sets should use menu or inline picker styles, not `.segmented`.
+6. Omit stack/grid `spacing:` for platform-adaptive defaults unless a specific gap is intentional.
+7. Drive a scroll reveal from one normalized progress value, not parallel booleans or a duplicate drag gesture.
+8. Keep per-frame scroll geometry local and avoid changing the geometry used to calculate progress.
 
 ## Review Checklist
 

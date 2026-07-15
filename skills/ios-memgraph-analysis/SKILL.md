@@ -1,6 +1,6 @@
 ---
 name: ios-memgraph-analysis
-description: "Use when capturing or analyzing an exported iOS .memgraph with Apple CLI tools, following ownership paths from leaks output, or comparing matched memory graphs for persistent reachable heap growth. Covers unambiguous Simulator process capture, leaks --list/--traceTree/--referenceTree/--groupByType, Malloc Stack Logging evidence, vmmap and heap comparisons, raw artifact preservation, and same-flow verification. Use debugging-instruments for the interactive Xcode Memory Graph Debugger, generic retain-cycle inspection, Instruments, or LLDB work."
+description: "Use when capturing or analyzing an iOS .memgraph, especially when the task mentions a memory leak, heap growth, persistent memory increase, ownership path, or matched-capture comparison with Apple CLI tools. Covers unambiguous Simulator capture, leaks/heap/vmmap/malloc_history evidence, raw artifact preservation, and same-flow verification. Use debugging-instruments for interactive Xcode Memory Graph, Instruments, generic retain-cycle inspection, or LLDB work."
 ---
 
 # iOS Memgraph Analysis
@@ -136,27 +136,13 @@ reproduction. Never invent a root path that the graph does not contain.
 
 ### 5. Investigate growth when `leaks` is empty
 
-Use matching baseline and post-flow graphs. Run `vmmap -summary` on both to
-locate the growing region. If growth is in malloc regions, compare the graphs
-with the current command shape:
-
-```bash
-heap --diffFrom=baseline.memgraph post.memgraph
-```
-
-This identifies object types present after the flow but not in the baseline.
-Then:
-
-- use `heap --addresses='<class-or-size-pattern>' post.memgraph` to obtain
-  addresses for a suspicious type or size;
-- use `leaks --traceTree=<address>` without Malloc Stack Logging;
-- use `malloc_history post.memgraph -fullStacks <address>` when Malloc Stack
-  Logging is present, where `<address>` comes from the preceding
-  `heap --addresses` query;
-- use `leaks --referenceTree --groupByType` to find aggregate ownership clues.
-
-Check each installed tool's `--help` because Xcode/macOS tool output and flags
-can evolve. Preserve every raw command result with the graphs.
+Use matching baseline and post-flow graphs, locate the growing region, compare
+object types, then trace a suspicious address back to an app-owned edge. The
+evidence goal is persistent reachable growth across the same lifetime—not a
+lower RSS value or a single large snapshot. Load
+[reachable-growth.md](references/reachable-growth.md) only for this empty-leak
+branch; it contains the ordered `vmmap`, `heap`, `leaks`, and `malloc_history`
+queries and their logging-dependent alternatives.
 
 ### 6. Fix and verify the same lifetime
 
@@ -208,6 +194,8 @@ not proof.
 
 ## References
 
+- [Reachable growth when `leaks` is empty](references/reachable-growth.md) —
+  matched-graph comparison and address-to-owner workflow
 - [Gathering information about memory use](https://sosumi.ai/documentation/xcode/gathering-information-about-memory-use)
 - [Detect and diagnose memory issues — WWDC21](https://sosumi.ai/videos/play/wwdc2021/10180)
 - [Analyze heap memory — WWDC24](https://sosumi.ai/videos/play/wwdc2024/10173)

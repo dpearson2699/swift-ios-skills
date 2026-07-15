@@ -36,7 +36,7 @@
       "expectations": [
         "Keeps SwiftUI profiling, update fan-out, body cost, identity churn, lazy container behavior, image work, and representable update cost in swiftui-performance scope.",
         "Routes transition curve, timing, and animation API details to swiftui-animation when those are the primary issue.",
-        "Routes MetricKit subscriber or MXDiagnosticPayload ingestion details to the metrickit skill.",
+        "Routes MetricManager report-sequence or DiagnosticReport ingestion details to the metrickit skill, including legacy compatibility when required.",
         "Routes NavigationStack routing and deep-link bug design to swiftui-navigation.",
         "Does not collapse sibling boundaries by giving full implementations for MetricKit, navigation routing, or animation tuning."
       ]

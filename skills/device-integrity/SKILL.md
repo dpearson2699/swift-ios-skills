@@ -68,19 +68,9 @@ func sendTokenToServer(_ token: Data) async throws {
 
 ### Server-Side Overview
 
-Your server uses the device token to call Apple's DeviceCheck API endpoints:
-
-| Endpoint | Purpose |
-|----------|---------|
-| `https://api.devicecheck.apple.com/v1/query_two_bits` | Read the two bits for a device |
-| `https://api.devicecheck.apple.com/v1/update_two_bits` | Set the two bits for a device |
-| `https://api.devicecheck.apple.com/v1/validate_device_token` | Validate a device token without reading bits |
-
-The server authenticates with a DeviceCheck private key from the Apple Developer
-portal, creating a signed JWT for each request.
-
-Use `https://api.development.devicecheck.apple.com` only while testing; use
-`https://api.devicecheck.apple.com` for production.
+The server exchanges each fresh token with Apple's authenticated DeviceCheck API.
+Load [DeviceCheck Server Endpoints](references/device-integrity-patterns.md#devicecheck-server-endpoints)
+for endpoint and environment details.
 
 ### What the Two Bits Are For
 
@@ -257,14 +247,10 @@ extension AppAttestManager {
 
 ### Server-Side Attestation Verification
 
-Your server validates the attestation object (CBOR), verifies the certificate
-chain against Apple's App Attest root CA, checks Apple's nonce calculation, and
-stores the verified public key and receipt for future assertion verification.
-The attestation nonce is not `SHA256(challenge)` alone; it is
-`SHA256(authData || SHA256(challenge))` and is compared with the credential
-certificate extension `1.2.840.113635.100.8.2`. See
-[references/device-integrity-patterns.md](references/device-integrity-patterns.md)
-for the full server verification flow.
+The server must verify the attestation before the client treats `keyId` as usable,
+then store the verified public key and receipt. Load
+[Server-Side Attestation Verification](references/device-integrity-patterns.md#server-side-attestation-verification)
+for the certificate, App ID, environment, counter, credential, and nonce checks.
 
 ## App Attest Assertion Flow
 
@@ -342,12 +328,10 @@ extension AppAttestManager {
 
 ### Server-Side Assertion Verification
 
-Your server decodes the assertion (CBOR), verifies the authenticator data and
-counter, recomputes `clientDataHash` from the submitted client data, verifies
-the signature over `SHA256(authenticatorData || clientDataHash)` with the
-stored public key, and confirms the embedded challenge and request context. See
-[references/device-integrity-patterns.md](references/device-integrity-patterns.md)
-for step-by-step server verification.
+The server must verify each assertion's signature, RP ID, counter, one-time
+challenge, and request binding before authorizing the request. Load
+[Server-Side Assertion Verification](references/device-integrity-patterns.md#server-side-assertion-verification)
+for the complete algorithm.
 
 ## Server Verification Guidance
 
@@ -382,17 +366,9 @@ for full error handling code, retry strategy, and rejected-key recovery.
 ### Environment Entitlement
 
 Set the App Attest environment in your entitlements file. Use `development`
-during testing and `production` for App Store builds:
-
-```xml
-<key>com.apple.developer.devicecheck.appattest-environment</key>
-<string>production</string>
-```
-
-When the entitlement is omitted during development, the app uses the App Attest
-sandbox by default. After distribution through TestFlight, the App Store, or the
-Apple Developer Enterprise Program, the app ignores the entitlement value and
-uses production.
+during testing and `production` for App Store builds. Load
+[Environment Entitlement](references/device-integrity-patterns.md#environment-entitlement)
+for the XML, default sandbox behavior, distribution behavior, and extension limits.
 
 See [references/device-integrity-patterns.md](references/device-integrity-patterns.md) for the full integration manager pattern, gradual rollout guidance, and error type definition.
 

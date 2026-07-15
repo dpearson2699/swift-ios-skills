@@ -274,118 +274,31 @@ For destructive or retryable batch work, use a proof loop: preflight the predica
 ## Persistent History Tracking
 
 Track store-level changes across targets (app, extensions, widgets) and
-processes.
+processes. The core workflow is:
 
 Docs: [NSPersistentHistoryChangeRequest](https://sosumi.ai/documentation/coredata/nspersistenthistorychangerequest)
 
-### Enable History Tracking
+1. Enable persistent history and remote-change notifications before loading the
+   store.
+2. Observe changes and fetch transactions after the target's durable token.
+3. Merge transaction notifications into live contexts, then persist the new
+   token.
+4. Purge only history that every relevant consumer has processed.
 
-```swift
-let description = NSPersistentStoreDescription()
-description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
-description.setOption(true as NSNumber,
-    forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
-container.persistentStoreDescriptions = [description]
-```
-
-### Observe, Fetch, Merge, and Purge
-
-```swift
-// 1. Observe remote change notifications
-NotificationCenter.default.addObserver(
-    self, selector: #selector(storeRemoteChange(_:)),
-    name: .NSPersistentStoreRemoteChange, object: container.persistentStoreCoordinator
-)
-
-// 2. Fetch history since last token
-@objc func storeRemoteChange(_ notification: Notification) {
-    let context = container.newBackgroundContext()
-    context.perform {
-        let request = NSPersistentHistoryChangeRequest.fetchHistory(after: self.lastToken)
-        if let result = try? context.execute(request) as? NSPersistentHistoryResult,
-           let transactions = result.result as? [NSPersistentHistoryTransaction] {
-            // 3. Merge into viewContext
-            for transaction in transactions {
-                self.container.viewContext.mergeChanges(fromContextDidSave: transaction.objectIDNotification())
-                self.lastToken = transaction.token
-            }
-        }
-        // 4. Purge old history
-        let purgeRequest = NSPersistentHistoryChangeRequest.deleteHistory(before: self.lastToken)
-        try? context.execute(purgeRequest)
-    }
-}
-```
-
-Store `lastToken` in `UserDefaults` (per target) so history is processed
-correctly across launches.
+Load [persistent-history.md](references/persistent-history.md) when implementing
+the store options, observer, token persistence, merge loop, or purge policy.
 
 ## Staged Migration
 
 `NSStagedMigrationManager` (iOS 17+) sequences schema migrations through
-ordered stages, each lightweight or custom.
+ordered lightweight or custom stages. Stage inputs use compiled model-version
+checksums, not model names. Apps supporting systems below iOS 17 need the
+lightweight migration or mapping-model path.
 
 Docs: [NSStagedMigrationManager](https://sosumi.ai/documentation/coredata/nsstagedmigrationmanager)
 
-```swift
-import CoreData
-
-// Define migration stages
-// Use version checksums from the compiled model versions, not model names.
-let checksumV1 = "<ModelV1 version checksum>"
-let checksumV2 = "<ModelV2 version checksum>"
-let checksumV3 = "<ModelV3 version checksum>"
-let stage1to2 = NSLightweightMigrationStage([checksumV1, checksumV2])
-stage1to2.label = "Add isFavorite property"
-
-let modelV2 = NSManagedObjectModelReference(
-    name: "ModelV2",
-    in: Bundle.main,
-    versionChecksum: checksumV2
-)
-let modelV3 = NSManagedObjectModelReference(
-    name: "ModelV3",
-    in: Bundle.main,
-    versionChecksum: checksumV3
-)
-let stage2to3 = NSCustomMigrationStage(
-    migratingFrom: modelV2,
-    to: modelV3
-)
-stage2to3.label = "Split name into firstName/lastName"
-stage2to3.willMigrateHandler = { migrationManager, currentStage in
-    guard let container = migrationManager.container else { return }
-    let context = container.newBackgroundContext()
-    try context.performAndWait {
-        // Transform data between schema versions
-        let request = NSFetchRequest<NSManagedObject>(entityName: "Person")
-        let people = try context.fetch(request)
-        for person in people {
-            let fullName = person.value(forKey: "name") as? String ?? ""
-            let parts = fullName.split(separator: " ", maxSplits: 1)
-            person.setValue(String(parts.first ?? ""), forKey: "firstName")
-            person.setValue(parts.count > 1 ? String(parts.last!) : "", forKey: "lastName")
-        }
-        try context.save()
-    }
-}
-
-// Apply to the persistent store
-let manager = NSStagedMigrationManager([stage1to2, stage2to3])
-let description = NSPersistentStoreDescription()
-description.setOption(manager,
-    forKey: NSPersistentStoreStagedMigrationManagerOptionKey)
-container.persistentStoreDescriptions = [description]
-container.loadPersistentStores { _, error in
-    if let error { fatalError("Migration failed: \(error)") }
-}
-```
-
-For apps targeting below iOS 17, use lightweight migration
-(`NSInferMappingModelAutomaticallyOption`) or mapping models.
-
-`NSLightweightMigrationStage` takes **version checksums** (`[String]`), not
-human-readable model names.
+Load [staged-migration.md](references/staged-migration.md) when building the
+ordered stages, model references, custom handler, and persistent-store option.
 
 ## Composite Attributes
 
@@ -495,4 +408,6 @@ func makeTestContainer() throws -> NSPersistentContainer {
 
 ## References
 
+- [Persistent history across targets and processes](references/persistent-history.md)
+- [Staged lightweight and custom migration](references/staged-migration.md)
 - Apple docs: [Core Data](https://sosumi.ai/documentation/coredata) | [NSPersistentContainer](https://sosumi.ai/documentation/coredata/nspersistentcontainer) | [NSFetchedResultsController](https://sosumi.ai/documentation/coredata/nsfetchedresultscontroller) | [NSStagedMigrationManager](https://sosumi.ai/documentation/coredata/nsstagedmigrationmanager)

@@ -45,6 +45,7 @@ final class WorkoutManager: NSObject {
     var distance: Double = 0
     var elapsedTime: TimeInterval = 0
     var isActive = false
+    var finalizationError: Error?
 
     func startWorkout(activityType: HKWorkoutActivityType) async throws {
         let configuration = HKWorkoutConfiguration()
@@ -81,11 +82,30 @@ final class WorkoutManager: NSObject {
         session?.resume()
     }
 
-    func end() async throws {
-        guard let session, let builder else { return }
-        session.end()
-        try await builder.endCollection(at: Date())
-        try await builder.finishWorkout()
+    func end() {
+        guard let session else { return }
+        session.stopActivity(with: Date())
+    }
+
+    private func finalizeStoppedWorkout(at date: Date) async {
+        guard let builder else { return }
+
+        do {
+            try await builder.endCollection(at: date)
+        } catch {
+            finalizationError = error
+            return
+        }
+
+        do {
+            _ = try await builder.finishWorkout()
+        } catch {
+            finalizationError = error
+            return
+        }
+
+        // A nil workout while locked is not a failed finish; the awaited return
+        // is the success boundary.
         isActive = false
         self.session = nil
         self.builder = nil
@@ -107,7 +127,10 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
                 isActive = true
             case .paused:
                 isActive = false
-            case .ended, .stopped:
+            case .stopped:
+                isActive = false
+                await finalizeStoppedWorkout(at: date)
+            case .ended:
                 isActive = false
             default:
                 break
