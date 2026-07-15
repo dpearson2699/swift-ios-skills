@@ -169,69 +169,15 @@ func readerSession(
 Use `NFCTagReaderSession` when you need direct access to the native tag
 protocol (ISO 7816, ISO 15693, FeliCa, or MIFARE).
 
-Polling options are protocol-specific: `.iso14443` detects ISO
-7816-compatible and MIFARE tags, `.iso15693` detects ISO 15693 tags, and
-`.iso18092` detects FeliCa tags. Do not use `NFCTagReaderSession` for
-payment-related AIDs; Apple documents `NFCPaymentTagReaderSession` for
-eligible EU payment use cases.
+| Polling option | Tags |
+|---|---|
+| `.iso14443` | ISO 7816-compatible and MIFARE |
+| `.iso15693` | ISO 15693 |
+| `.iso18092` | FeliCa |
 
-```swift
-final class TagReader: NSObject, NFCTagReaderSessionDelegate {
-    private var session: NFCTagReaderSession?
-
-    func beginScanning() {
-        guard NFCTagReaderSession.readingAvailable else { return }
-
-        session = NFCTagReaderSession(
-            pollingOption: [.iso14443, .iso15693, .iso18092],
-            delegate: self,
-            queue: nil
-        )
-        session?.alertMessage = "Hold your iPhone near a tag."
-        session?.begin()
-    }
-
-    func tagReaderSessionDidBecomeActive(
-        _ session: NFCTagReaderSession
-    ) { }
-
-    func tagReaderSession(
-        _ session: NFCTagReaderSession,
-        didDetect tags: [NFCTag]
-    ) {
-        guard let tag = tags.first else { return }
-
-        session.connect(to: tag) { error in
-            guard error == nil else {
-                session.invalidate(
-                    errorMessage: "Connection failed."
-                )
-                return
-            }
-
-            switch tag {
-            case .iso7816(let iso7816Tag):
-                self.readISO7816(tag: iso7816Tag, session: session)
-            case .miFare(let miFareTag):
-                self.readMiFare(tag: miFareTag, session: session)
-            case .iso15693(let iso15693Tag):
-                self.readISO15693(tag: iso15693Tag, session: session)
-            case .feliCa(let feliCaTag):
-                self.readFeliCa(tag: feliCaTag, session: session)
-            @unknown default:
-                session.invalidate(errorMessage: "Unsupported tag type.")
-            }
-        }
-    }
-
-    func tagReaderSession(
-        _ session: NFCTagReaderSession,
-        didInvalidateWithError error: Error
-    ) {
-        self.session = nil
-    }
-}
-```
+Do not use this session for payment-related AIDs. Load
+[nfc-patterns.md](references/nfc-patterns.md) for protocol-specific connection,
+APDU, command, and response handling.
 
 ## Writing NDEF Messages
 
@@ -299,32 +245,8 @@ let customPayload = NFCNDEFPayload(
 
 ### Parsing Payload Content
 
-```swift
-func processRecord(_ record: NFCNDEFPayload) {
-    switch record.typeNameFormat {
-    case .nfcWellKnown:
-        if let url = record.wellKnownTypeURIPayload() {
-            print("URL: \(url)")
-        } else if let (text, locale) = record.wellKnownTypeTextPayload() {
-            print("Text (\(locale)): \(text)")
-        }
-    case .absoluteURI:
-        if let uri = String(data: record.payload, encoding: .utf8) {
-            print("Absolute URI: \(uri)")
-        }
-    case .media:
-        let mimeType = String(data: record.type, encoding: .utf8) ?? ""
-        print("MIME type: \(mimeType), size: \(record.payload.count)")
-    case .nfcExternal:
-        let type = String(data: record.type, encoding: .utf8) ?? ""
-        print("External type: \(type)")
-    case .empty, .unknown, .unchanged:
-        break
-    @unknown default:
-        break
-    }
-}
-```
+Load [Parsing NDEF Payload Content](references/nfc-patterns.md#parsing-ndef-payload-content)
+for the complete type-name-format switch and multi-record handling.
 
 ## Background Tag Reading
 
@@ -366,14 +288,6 @@ func scene(
 Without the `com.apple.developer.nfc.readersession.formats` entitlement,
 reader sessions cannot access NFC hardware. Use the current `TAG` value for
 Core NFC reader sessions; do not copy older examples that add `NDEF`.
-
-### DON'T: Skip the readingAvailable check
-
-Creating an NFC session on an unsupported or restricted device fails before
-the scan UI can do useful work.
-
-Check `NFCNDEFReaderSession.readingAvailable` or
-`NFCTagReaderSession.readingAvailable` before creating the matching session.
 
 ### DON'T: Ignore session invalidation errors
 
@@ -423,28 +337,6 @@ func scanAgain() {
         delegate: self, queue: nil, invalidateAfterFirstRead: false
     )
     session?.begin()
-}
-```
-
-### DON'T: Write without checking tag status
-
-Writing to a read-only tag silently fails or produces confusing errors.
-
-```swift
-// WRONG -- writes without checking status
-tag.writeNDEF(message) { error in
-    // May fail on read-only tags
-}
-
-// CORRECT -- check status first
-tag.queryNDEFStatus { status, capacity, error in
-    guard status == .readWrite else {
-        session.invalidate(errorMessage: "Tag is read-only.")
-        return
-    }
-    tag.writeNDEF(message) { error in
-        // Handle result
-    }
 }
 ```
 

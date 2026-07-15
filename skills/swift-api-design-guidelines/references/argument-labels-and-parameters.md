@@ -7,6 +7,7 @@ Extended examples for argument label rules, edge cases, parameter naming, and de
 - [Prepositional Phrase Rule Edge Cases](#prepositional-phrase-rule-edge-cases)
 - [Grammatical Phrase Rule Extended Examples](#grammatical-phrase-rule-extended-examples)
 - [Value-Preserving vs Narrowing Conversions](#value-preserving-vs-narrowing-conversions)
+- [Indistinguishable Peer Arguments](#indistinguishable-peer-arguments)
 - [Parameter Naming for Documentation](#parameter-naming-for-documentation)
 - [Default Arguments Over Method Families](#default-arguments-over-method-families)
 
@@ -103,6 +104,18 @@ String(utf8String: cString)         // interprets as UTF-8
 Data(contentsOf: url)               // reads from file
 URL(string: urlString)              // parses string as URL
 ```
+
+## Indistinguishable Peer Arguments
+
+Omit all labels when arguments are peers that cannot be usefully distinguished:
+
+```swift
+let smaller = min(x, y)
+zip(sequence1, sequence2)
+```
+
+Keep labels when the values have distinct semantic roles, even if their types
+match.
 
 ## Parameter Naming for Documentation
 

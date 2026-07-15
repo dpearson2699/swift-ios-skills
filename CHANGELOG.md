@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Skill updates
+
+- Migrate `metrickit` to the iOS/iPadOS 27 beta `MetricManager` async report APIs while retaining an explicit iOS 26 `MXMetricManager` compatibility path and refreshing related boundary evals.
+
 ## v3.8.0
 
 ### Repository

@@ -230,14 +230,9 @@ let minuteForecast = try await weatherService.weather(
 
 ## Context Queries
 
-Use the iOS 18+ context queries when the app needs to explain why today's
-weather matters, not just display raw forecast values. Both query results are
-optional.
-
-For "unusual tomorrow" or "what is changing?" features, request both `.changes`
-and `.historicalComparisons`. Use `.changes` for significant upcoming changes,
-then use `.historicalComparisons` to explain how current or forecast conditions
-compare with historical averages.
+For "unusual tomorrow" or "what is changing?" features on iOS 18+, request the
+optional `.changes` and `.historicalComparisons` results together: the first
+reports significant upcoming changes and the second provides historical context.
 
 ```swift
 let (changes, comparisons) = try await weatherService.weather(
@@ -246,13 +241,9 @@ let (changes, comparisons) = try await weatherService.weather(
 )
 ```
 
-For historical statistics, use the `WeatherService` statistics and summary
-methods rather than `WeatherQuery`. In variadic `including:` calls, state that
-tuple result order matches the query argument order. Load
-`references/weatherkit-patterns.md` when implementing daily summaries, daily
-statistics, hourly statistics, or monthly statistics.
-Use statistics properties such as `averagePrecipitationProbability`, not
-forecast-only `DayWeather.precipitationChance`, in statistics examples.
+Historical summaries and statistics use `WeatherService` methods rather than
+`WeatherQuery`. Load [references/weatherkit-patterns.md](references/weatherkit-patterns.md)
+for their tuple ordering, APIs, and statistics-specific properties.
 
 ## Attribution
 
@@ -313,37 +304,13 @@ Display the appropriate Apple Weather mark and link `legalPageURL` wherever Weat
 
 ### DON'T: Fetch all datasets when you only need current conditions
 
-Each dataset query counts against your API quota. Fetch only what you display.
-
-```swift
-// WRONG: Fetches everything
-let weather = try await weatherService.weather(for: location)
-let temp = weather.currentWeather.temperature
-
-// CORRECT: Fetch only current conditions
-let current = try await weatherService.weather(
-    for: location,
-    including: .current
-)
-let temp = current.temperature
-```
+Each dataset query counts against your API quota. Use the selective query shown
+in [Selective Queries](#selective-queries) and fetch only what the UI displays.
 
 ### DON'T: Ignore minute forecast unavailability
 
-Minute forecasts return `nil` in unsupported regions. Force-unwrapping crashes.
-
-```swift
-// WRONG: Force-unwrap minute forecast
-let minutes = try await weatherService.weather(for: location, including: .minute)
-for m in minutes! { ... } // Crash in unsupported regions
-
-// CORRECT: Handle nil
-if let minutes = try await weatherService.weather(for: location, including: .minute) {
-    for m in minutes { ... }
-} else {
-    // Minute forecast not available for this region
-}
-```
+Minute forecasts are optional in unsupported regions. Check availability and
+handle the `nil` result instead of force-unwrapping it.
 
 ### DON'T: Forget the WeatherKit entitlement
 
@@ -360,35 +327,9 @@ let weather = try await weatherService.weather(for: location) // Throws
 ### DON'T: Make repeated requests without caching
 
 WeatherKit models include `metadata.expirationDate`. Cache responses until that
-expiration instead of inventing a fixed refresh interval. Avoid unconditional
-network calls from every `onAppear` or `.task`; let an `@Observable` model,
-view model, or cache own `loadIfNeeded`, and reserve explicit refresh for user
-refresh actions or location/query changes.
-
-```swift
-// WRONG: Fetch on every view appearance
-.task {
-    let weather = try? await fetchWeather()
-}
-
-// CORRECT: let the model/cache decide whether a fetch is needed
-actor WeatherCache {
-    private var cached: CurrentWeather?
-    private var expiresAt: Date?
-
-    func current(for location: CLLocation) async throws -> CurrentWeather {
-        if let cached, let expiresAt, Date.now < expiresAt {
-            return cached
-        }
-        let fresh = try await WeatherService.shared.weather(
-            for: location, including: .current
-        )
-        cached = fresh
-        expiresAt = fresh.metadata.expirationDate
-        return fresh
-    }
-}
-```
+expiration instead of inventing a fixed interval or fetching on every view
+appearance. Let a model or cache own `loadIfNeeded`; the complete actor pattern
+is in [references/weatherkit-patterns.md](references/weatherkit-patterns.md#caching-strategy).
 
 ## Review Checklist
 

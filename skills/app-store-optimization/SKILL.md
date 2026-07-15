@@ -9,7 +9,7 @@ Search visibility and conversion optimization for App Store product pages. This 
 
 ## Contents
 
-- [Overview](#overview)
+- [Workflow and Boundaries](#workflow-and-boundaries)
 - [Title and Subtitle Strategy](#title-and-subtitle-strategy)
 - [Keyword Field Strategy](#keyword-field-strategy)
 - [Description Structure](#description-structure)
@@ -25,29 +25,18 @@ Search visibility and conversion optimization for App Store product pages. This 
 - [Review Checklist](#review-checklist)
 - [References](#references)
 
-## Overview
+## Workflow and Boundaries
 
-ASO has two pillars:
+1. Split recommendations into **Visibility** (indexed metadata, localization,
+   ratings, events) and **Conversion** (message, assets, variants, experiments).
+2. Name the evidence, owner, target metric, and validation checkpoint for each.
+3. Apply the [Review Checklist](#review-checklist).
 
-1. **Search visibility** -- ranking for relevant queries so users find the app.
-2. **Conversion rate** -- convincing users who land on the product page to download.
-
-Apply this skill when a developer asks about improving discoverability, keyword strategy, download conversion, or any product page element that affects either pillar.
-
-For metadata format rules and compliance guardrails, see the `app-store-review` skill. This skill assumes the developer is working within those constraints and focuses on strategy.
-
-When producing an ASO plan or ownership split, explicitly separate **Visibility** from **Conversion**. Visibility covers search and browse discoverability: app name, subtitle, keyword field, primary category, localization, ratings and reviews, relevant In-App Events, and Custom Product Pages. Conversion covers the product-page decision path: screenshots, app previews, description, promotional text, Custom Product Page messaging, Product Page Optimization tests, and alignment between public claims, screenshots, and the real in-app UI.
-
-Boundary rule: ASO owns listing strategy, keyword/message fit, screenshots, promotional text, Custom Product Pages, Product Page Optimization, localization, In-App Event positioning, ratings strategy, and lightweight review-prompt timing. `app-store-review` owns review compliance, PrivacyInfo.xcprivacy, ATT wording, and submission guardrails; ASO only cross-checks that public claims and screenshots are accurate. `storekit` owns purchase implementation, subscription paywall code, entitlement checks, and monetization mechanics.
-
-For any full ASO plan, include these explicit checklist items so important App Store mechanics do not get dropped:
-
-- Visibility: app name, subtitle, keyword field, primary category, localization, ratings/reviews, In-App Events if relevant, and Custom Product Pages with assigned keyword search visibility.
-- Conversion: description hook, first screenshots or app preview, promotional text, Custom Product Page message fit, Product Page Optimization, and public-claim/screenshot accuracy.
-- Experimentation: one PPO hypothesis, up to three treatments, selected localizations, target metric, and decision rule.
-- Review prompts: positive trigger, bad-trigger avoidance, and the note that StoreKit decides whether a request displays a prompt.
-
-Do not leave these implicit: reject high-volume keywords, state CPP capacity as 70 pages, list up to three PPO treatments, and mark In-App Events and ratings ASO-owned.
+| Work | Owner |
+|---|---|
+| Listing, keyword/message fit, assets, page variants, localization, events, ratings strategy | This skill |
+| Submission compliance, privacy manifest/labels, ATT wording, rejection risk | `app-store-review` |
+| Purchases, paywalls, entitlements, subscription mechanics | `storekit` |
 
 ## Title and Subtitle Strategy
 
@@ -66,14 +55,10 @@ Use **Brand -- Keyword** when the brand already has recognition, **Keyword -- Br
 
 ## Keyword Field Strategy
 
-The keyword field is 100 characters, comma-separated, no spaces after commas. See the `app-store-review` skill for the full format rules. This section focuses on which keywords to choose and how to prioritize them.
-
-### Research process
-
-1. **Competitor audit** -- identify the top 5-10 competitors in the category and note which keywords appear in their titles, subtitles, and descriptions.
-2. **Category analysis** -- identify terms users associate with the app's category that competitors may be missing.
-3. **Search Ads signals** -- run Apple Search Ads discovery campaigns to surface high-intent queries with actual impression and tap data.
-4. **Iterate each release** -- update keywords based on Search Ads performance, App Analytics impressions, and conversion data.
+App Store Connect accepts up to 100 UTF-8 bytes in the keyword field (some
+Apple overview pages summarize this as 100 characters). Use comma-separated
+terms with no spaces after commas; each term must be longer than two
+characters.
 
 ### Prioritization
 
@@ -85,20 +70,27 @@ Rank candidate keywords by three factors:
 | **Search volume** | Medium | Are users actually searching for this term? |
 | **Competition** | Lower | How many apps target this keyword? |
 
-Relevance always wins. A high-volume keyword that does not describe the app will get impressions but not conversions.
-
-For search relevance, prioritize user intent first, then metadata fit. Always account for the primary category alongside the app name, subtitle, and keyword field; do not repeat category terms in the keyword field.
+Prioritize user intent and metadata fit. Account for the primary category
+alongside the app name, subtitle, and keyword field; do not repeat it.
 
 ### Tactical rules
 
 - Deduplicate against title and subtitle -- Apple already indexes those words.
-- Use singular forms only -- Apple matches both singular and plural from singular.
+- Do not include both singular and plural forms of the same term; Apple treats
+  them as duplicates.
 - Omit the category name -- Apple adds the app's primary category to search automatically.
 - Omit spaces after commas -- they count against the 100-character limit.
 - Consider abbreviations and common misspellings if they are genuine search terms.
 - Reserve space for the most relevant, highest-intent terms; do not spend characters on terms that only weakly describe the app.
 
 **See:** [references/keyword-research-methodology.md](references/keyword-research-methodology.md) for the full research process, scoring framework, and indexing details.
+
+**Validation checkpoint:** Render the final name, subtitle, and keyword field
+together. Count its UTF-8 bytes, split it on commas, reject blank,
+space-prefixed, or two-character-or-shorter tokens, compare normalized words
+across the three indexed fields and primary
+category, and require a relevance or demand signal for every retained term.
+Revise the field and repeat the check until every token earns its space.
 
 ## Description Structure
 
@@ -150,6 +142,12 @@ Use slot 1 for the primary value proposition, slot 2 for the core differentiator
 If a preview video is present, it occupies the first slot. The first frame becomes the poster image when autoplay is disabled -- choose a frame that works as a standalone screenshot.
 
 For screenshot device requirements and compliance rules, see the `app-store-review` skill.
+
+**Validation checkpoint:** Preview each localized product page at first-fold size.
+Confirm that the first three visible assets communicate distinct benefits, that
+captions match the UI and public claims, and that the ordering answers the same
+intent targeted by the page's metadata. Replace or reorder any asset that fails,
+then review the first fold again as a set.
 
 ## In-App Review Prompts
 
@@ -210,8 +208,8 @@ Event name is 30 characters, short description 50, long description 120, and the
 ### Strategy
 
 - Schedule events around feature releases, seasonal moments, or content drops.
-- Write the event name and short description with search-result context in mind; they appear on event cards in surfaces such as Search and the Today tab.
-- Events appear on the product page and can appear in search results, giving the app a visual card that can increase tap-through rate when the event is timely and relevant.
+- Write the name and short description for their event-card context across the
+  product page, Search, and Today; measure whether a timely card improves taps.
 - Overlap events strategically: end the current event as the next one begins to maintain continuous search visibility.
 
 **See:** [references/product-page-variants.md](references/product-page-variants.md) for event scheduling templates.
@@ -274,31 +272,21 @@ For in-app string localization (String Catalogs, FormatStyle, right-to-left layo
 
 ## Common Mistakes
 
-1. **Duplicating title/subtitle/category words in the keyword field.**
-2. **Writing feature-descriptive captions instead of benefit-oriented screenshot copy.**
-3. **Translating keywords instead of researching per-market search terms.**
-4. **Prompting for reviews after onboarding, errors, crashes, or failed transactions.**
-5. **Ignoring the first three screenshot slots or leading with onboarding/splash screens.**
-6. **Leaving promotional text static across releases and campaigns.**
-7. **Running PPO tests without enough duration, traffic, or a single clear hypothesis.**
-8. **Adding spaces after commas in the keyword field.**
-9. **Reusing identical assets across all Custom Product Pages.**
-10. **Ignoring negative App Store reviews instead of responding and learning from customer language.**
+1. **Writing feature-descriptive captions instead of benefit-oriented screenshot copy.**
+2. **Translating keywords instead of researching per-market search terms.**
+3. **Prompting for reviews after onboarding, errors, crashes, or failed transactions.**
+4. **Ignoring the first three screenshot slots or leading with onboarding/splash screens.**
+5. **Running PPO tests without enough duration, traffic, or a single clear hypothesis.**
+6. **Reusing identical assets across all Custom Product Pages.**
 
 ## Review Checklist
 
-- [ ] Title uses high-value keyword alongside brand name; no words repeated in subtitle
-- [ ] Subtitle communicates primary value proposition within 30 characters
-- [ ] Keyword field uses all 100 characters; no spaces after commas; no duplicates of title/subtitle words; singular forms only
-- [ ] Description follows hook-features-proof-CTA structure; first 3 lines compelling before the fold
-- [ ] Promotional text is current and relevant to the latest release or event
-- [ ] First 3 screenshots show highest-value screens with benefit-oriented captions
-- [ ] App preview video (if present) leads with the core feature in the first 5 seconds
-- [ ] `requestReview()` is placed after a positive user moment, not on first launch or after errors
-- [ ] Custom Product Pages created for distinct acquisition channels with tailored screenshots
-- [ ] In-app events configured for upcoming launches, seasons, or feature releases
-- [ ] Metadata localized with per-market keyword research for all supported locales
-- [ ] Compliance cross-check: all metadata passes the `app-store-review` skill checklist before submission
+- [ ] Indexed metadata passes the title/subtitle and keyword validation checkpoints
+- [ ] Description, promotional text, and first-fold assets pass their conversion checks
+- [ ] Metadata and assets are researched, written, ordered, and previewed per locale
+- [ ] Review prompts follow a successful user moment and StoreKit's system behavior
+- [ ] Page variants, events, and PPO tests name their audience, evidence, metric, and decision rule
+- [ ] Public claims and screenshots pass the `app-store-review` compliance checklist
 
 ## References
 

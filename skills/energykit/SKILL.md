@@ -5,13 +5,12 @@ description: "Query grid electricity forecasts and submit load events using Ener
 
 # EnergyKit
 
-Provide grid electricity forecasts to help users choose when to use electricity.
-EnergyKit identifies times when grid electricity is relatively cleaner and,
-when cost information is available, less expensive. Apps use that guidance to
-shift or reduce managed device load.
+Use grid cleanliness and cost guidance to shift or reduce managed-device load.
+For managed-device insights, submit the device's real load events promptly.
 
-> **Beta-sensitive.** EnergyKit is new in iOS 26 and may change before GM.
-> Re-check current Apple documentation before relying on specific API details.
+> **Beta-sensitive.** Core EnergyKit ships in iOS/iPadOS 26. The iOS/iPadOS 27
+> `ElectricalLoadDevice` and Home-facing LoadEvents experience are beta; re-check
+> current Apple documentation before relying on those APIs.
 
 ## Contents
 
@@ -28,13 +27,19 @@ shift or reduce managed device load.
 
 ## Setup
 
-### Entitlement
+### Entitlements and Version Split
 
-EnergyKit requires the `com.apple.developer.energykit` entitlement. Enable the
-EnergyKit capability in Xcode so the entitlement is added to the app target.
-Treat this as a top-level setup prerequisite before writing guidance queries,
-venue lookup, load-event submission, or insight code. Missing permission can
-surface as `EnergyKitError.permissionDenied`.
+| Runtime | Load-event device API | Capabilities |
+|---|---|---|
+| iOS/iPadOS 26.x | `deviceID:` compatibility initializer | EnergyKit |
+| iOS/iPadOS 27+ beta | `ElectricalLoadDevice` with the `device:` initializer | EnergyKit; add EnergyKit LoadEvents for Home app integration |
+
+All EnergyKit use requires `com.apple.developer.energykit`; enable the EnergyKit
+capability on the app target. On iOS/iPadOS 27+, add the EnergyKit LoadEvents
+capability (`com.apple.developer.energykit.loadevents-experience`) only when the
+app needs device names, energy context, activity logs, historical charts, or
+trend notifications in the Home app. That Home experience requires both
+capabilities. Missing permission can surface as `EnergyKitError.permissionDenied`.
 
 ### Import
 
@@ -42,9 +47,10 @@ surface as `EnergyKitError.permissionDenied`.
 import EnergyKit
 ```
 
-**Platform availability:** Core EnergyKit APIs are iOS 26.0+ and iPadOS 26.0+.
-Some insight breakdown APIs, including grid cleanliness categories, are iOS
-26.1+ / iPadOS 26.1+ and need availability guards.
+**Platform availability:** Core EnergyKit APIs are iOS/iPadOS 26.0+. Some
+insight breakdown APIs, including grid cleanliness categories, are 26.1+ and
+need availability guards. Apple currently documents electricity guidance only
+for the contiguous United States; handle `EnergyKitError.unsupportedRegion`.
 
 ## Core Concepts
 
@@ -67,6 +73,7 @@ EnergyKit provides two main capabilities:
 | `EnergyVenue` | A physical location (home) registered for energy management |
 | `ElectricVehicleLoadEvent` | Load event for EV charger telemetry |
 | `ElectricHVACLoadEvent` | Load event for HVAC system telemetry |
+| `ElectricalLoadDevice` | iOS/iPadOS 27+ beta device identity for load events |
 | `ElectricityInsightService` | Service for querying energy/runtime insights |
 | `ElectricityInsightRecord` | Historical energy or runtime data, optionally broken down by tariff or 26.1+ grid cleanliness |
 | `ElectricityInsightQuery` | Query for historical insight data |
@@ -229,10 +236,11 @@ the guidance token returned by EnergyKit. Do not invent a token.
 ### EV Charger Load Events
 
 ```swift
-func submitEVChargingEvent(
+func submitEVBeginEvent(
     at venue: EnergyVenue,
     guidanceToken: UUID,
-    deviceID: String
+    deviceID: String,
+    deviceName: String
 ) async throws {
     let session = ElectricVehicleLoadEvent.Session(
         id: UUID(),
@@ -246,16 +254,28 @@ func submitEVChargingEvent(
     let measurement = ElectricVehicleLoadEvent.ElectricalMeasurement(
         stateOfCharge: 45,
         direction: .imported,
-        power: Measurement(value: 7.2, unit: .kilowatts),
+        power: Measurement(value: 0, unit: .kilowatts),
         energy: Measurement(value: 0, unit: .kilowattHours)
     )
 
-    let event = ElectricVehicleLoadEvent(
-        timestamp: Date(),
-        measurement: measurement,
-        session: session,
-        deviceID: deviceID
-    )
+    let event: ElectricVehicleLoadEvent
+    if #available(iOS 27.0, iPadOS 27.0, *) {
+        let device = ElectricalLoadDevice(
+            id: deviceID,
+            name: deviceName,
+            type: .electricVehicle
+        )
+        event = ElectricVehicleLoadEvent(
+            timestamp: Date(), measurement: measurement,
+            session: session, device: device
+        )
+    } else {
+        // iOS/iPadOS 26 compatibility; deprecated in the iOS 27 SDK.
+        event = ElectricVehicleLoadEvent(
+            timestamp: Date(), measurement: measurement,
+            session: session, deviceID: deviceID
+        )
+    }
 
     try await venue.submitEvents([event])
 }
@@ -268,7 +288,8 @@ func submitHVACEvent(
     at venue: EnergyVenue,
     guidanceToken: UUID,
     stage: Int,
-    deviceID: String
+    deviceID: String,
+    deviceName: String
 ) async throws {
     let session = ElectricHVACLoadEvent.Session(
         id: UUID(),
@@ -281,12 +302,24 @@ func submitHVACEvent(
 
     let measurement = ElectricHVACLoadEvent.ElectricalMeasurement(stage: stage)
 
-    let event = ElectricHVACLoadEvent(
-        timestamp: Date(),
-        measurement: measurement,
-        session: session,
-        deviceID: deviceID
-    )
+    let event: ElectricHVACLoadEvent
+    if #available(iOS 27.0, iPadOS 27.0, *) {
+        let device = ElectricalLoadDevice(
+            id: deviceID,
+            name: deviceName,
+            type: .hvac
+        )
+        event = ElectricHVACLoadEvent(
+            timestamp: Date(), measurement: measurement,
+            session: session, device: device
+        )
+    } else {
+        // iOS/iPadOS 26 compatibility; deprecated in the iOS 27 SDK.
+        event = ElectricHVACLoadEvent(
+            timestamp: Date(), measurement: measurement,
+            session: session, deviceID: deviceID
+        )
+    }
 
     try await venue.submitEvents([event])
 }
@@ -300,13 +333,18 @@ func submitHVACEvent(
 | `.active` | Device is actively consuming (periodic updates) |
 | `.end` | Device stops consuming electricity |
 
-For EV charging, record begin/end, one steady sample about every 15 minutes,
-and extra samples for user actions, pauses, new guidance, or rapid power
-changes. For HVAC, submit separate events when equipment starts, when heating
-or cooling stage changes (heat stage 1 -> 2, heat -> cool, cool -> idle), and
-when equipment stops. Batch events when practical for performance. Insights
-are only available for submitted events, and load events for an `EnergyVenue`
-are visible to people who share the associated Home in the Home app.
+Preserve `.begin → .active → .end` and submit events promptly rather than
+holding long batches. For EV charging, submit `.begin` with zero power and
+energy, `.active` about every 15 minutes plus significant changes, and `.end`
+with zero power and cumulative energy. Retain unacknowledged events and retry
+`EnergyKitError.rateLimitExceeded` with bounded backoff. Load the
+[EV session manager](references/energykit-patterns.md#ev-charging-session-manager)
+or [HVAC session manager](references/energykit-patterns.md#hvac-control-manager)
+for device-specific lifecycle handling.
+
+Only promise Home app device names, energy context, activity logs, charts, and
+trend notifications on iOS/iPadOS 27+ when both the base EnergyKit and EnergyKit
+LoadEvents capabilities are present.
 
 ## Electricity Insights
 
@@ -367,42 +405,41 @@ year. See [references/energykit-patterns.md](references/energykit-patterns.md) f
 | Mistake | Fix |
 |---|---|
 | Querying before capability setup | Verify the EnergyKit entitlement and handle `.permissionDenied`. |
-| Assuming every region has guidance | Handle unsupported-region, unavailable-venue/guidance, service, and rate-limit states. |
+| Assuming every region has guidance | Apple currently documents guidance only in the contiguous US; handle unsupported-region and unavailable venue/guidance states. |
 | Fabricating or discarding the guidance token | Persist the real token on the requesting device and submit that token with its load events. |
-| Sending isolated load samples | Preserve `.begin → .active → .end` and Apple's event cadence. |
+| Sending isolated or delayed load samples | Preserve `.begin → .active → .end`, submit promptly, and retain events until submission succeeds. |
+| Using `deviceID:` as the current default | Use iOS/iPadOS 27+ `ElectricalLoadDevice` and `device:`; keep `deviceID:` only for the 26.x runtime branch. |
 | Using a hardcoded venue ID | Discover venues with `EnergyVenue.venues()` and select the intended venue. |
 
 ## Review Checklist
 
-- [ ] `com.apple.developer.energykit` entitlement added to the project
-- [ ] `EnergyKitError.unsupportedRegion` handled with user-facing message
-- [ ] `EnergyKitError.permissionDenied` handled gracefully
-- [ ] Real guidance token stored and submitted by the same EnergyKit-capable device/app
-- [ ] Venues discovered via `EnergyVenue.venues()` before querying guidance
-- [ ] Load event sessions follow `.begin` -> `.active` -> `.end`, with Apple cadence and practical batching
-- [ ] `ElectricityGuidance.Value.rating` interpreted correctly (lower is better)
-- [ ] `SuggestedAction` matches the device type (`.shift` for EV, `.reduce` for HVAC)
-- [ ] Insight queries use appropriate minimum ranges for their granularity
-- [ ] Empty insight query options are treated as totals-only, not as cleanliness or tariff requests
-- [ ] MetricKit power telemetry is not used as a substitute for EnergyKit load events or insights
-- [ ] Grid cleanliness insight fields are guarded for iOS/iPadOS 26.1+
-- [ ] Users understand load events are shared with people who share the Home
-- [ ] Rate limiting handled via `EnergyKitError.rateLimitExceeded`
-- [ ] Service unavailability handled with retry logic
+- [ ] Base EnergyKit capability is present; iOS/iPadOS 27+ Home integration also has EnergyKit LoadEvents
+- [ ] Region, permission, venue discovery, unavailable guidance, and service errors are handled
+- [ ] Real guidance tokens stay with the requesting device/app and its submitted load events
+- [ ] iOS/iPadOS 27+ uses `ElectricalLoadDevice`/`device:`; `deviceID:` is isolated to 26.x compatibility
+- [ ] `.begin → .active → .end` events follow device cadence, submit promptly, survive failure, and retry rate limits with bounded backoff
+- [ ] Ratings/actions are interpreted correctly; insight options, availability, granularity, and minimum ranges match the UI
+- [ ] MetricKit telemetry is not substituted for EnergyKit load events or insights
 
 ## References
 
-- Extended patterns (full app architecture, SwiftUI dashboard): [references/energykit-patterns.md](references/energykit-patterns.md)
+- Extended workflows for app architecture, EV/HVAC session cadence, dashboard
+  presentation, insights, errors, and venue discovery:
+  [references/energykit-patterns.md](references/energykit-patterns.md)
 - [EnergyKit framework](https://sosumi.ai/documentation/energykit)
 - [ElectricityGuidance](https://sosumi.ai/documentation/energykit/electricityguidance)
 - [ElectricityGuidance.Service](https://sosumi.ai/documentation/energykit/electricityguidance/service)
 - [ElectricityGuidance.Query](https://sosumi.ai/documentation/energykit/electricityguidance/query)
 - [ElectricityGuidance.Value](https://sosumi.ai/documentation/energykit/electricityguidance/value)
 - [EnergyVenue](https://sosumi.ai/documentation/energykit/energyvenue)
+- [ElectricalLoadDevice](https://sosumi.ai/documentation/energykit/electricalloaddevice)
 - [ElectricVehicleLoadEvent](https://sosumi.ai/documentation/energykit/electricvehicleloadevent)
 - [ElectricHVACLoadEvent](https://sosumi.ai/documentation/energykit/electrichvacloadevent)
 - [ElectricityInsightService](https://sosumi.ai/documentation/energykit/electricityinsightservice)
 - [ElectricityInsightRecord](https://sosumi.ai/documentation/energykit/electricityinsightrecord)
 - [ElectricityInsightQuery](https://sosumi.ai/documentation/energykit/electricityinsightquery)
 - [EnergyKitError](https://sosumi.ai/documentation/energykit/energykiterror)
+- [EnergyKit entitlement](https://sosumi.ai/documentation/bundleresources/entitlements/com.apple.developer.energykit)
+- [EnergyKit LoadEvents entitlement](https://sosumi.ai/documentation/bundleresources/entitlements/com.apple.developer.energykit.loadevents-experience)
+- [Providing charging history for electric vehicles](https://sosumi.ai/documentation/energykit/providing-informative-charging-history-for-electric-vehicles)
 - [Optimizing home electricity usage](https://sosumi.ai/documentation/energykit/optimizing-home-electricity-usage)

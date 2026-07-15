@@ -1,10 +1,10 @@
 {
-  "context": "Tests whether MetricKit guidance preserves boundaries with SwiftUI performance and Instruments debugging skills.",
+  "context": "Tests whether current MetricKit guidance preserves boundaries with SwiftUI performance and Instruments debugging skills.",
   "type": "weighted_checklist",
   "checklist": [
     {
       "name": "MetricKit stays in scope",
-      "description": "Keeps MXMetricManager setup, MXMetricPayload and MXDiagnosticPayload handling, MXHangDiagnostic or MXCrashDiagnostic processing, and backend upload guidance in MetricKit scope.",
+      "description": "Keeps iOS 27 MetricManager setup, MetricReport and DiagnosticReport ingestion, HangDiagnostic or CrashDiagnostic processing, durable export, and the isolated iOS 26 MXMetricManager compatibility path in MetricKit scope.",
       "max_score": 20
     },
     {
@@ -19,12 +19,12 @@
     },
     {
       "name": "Symbolication triage",
-      "description": "Mentions MXCallStackTree JSON plus dSYMs or an analytics symbolication pipeline for crash and hang triage.",
+      "description": "Mentions preserving CallStackTree and binary metadata plus matching dSYMs or an analytics symbolication pipeline for crash and hang triage.",
       "max_score": 15
     },
     {
-      "name": "Production telemetry cadence",
-      "description": "Frames MetricKit as production telemetry rather than immediate local debugging, including daily aggregation or non-realtime behavior.",
+      "name": "Production telemetry delivery",
+      "description": "Frames MetricKit as production telemetry, including normally daily metric reports and system-produced individual diagnostics rather than an immediate local trace.",
       "max_score": 15
     },
     {

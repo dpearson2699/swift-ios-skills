@@ -5,12 +5,7 @@ description: "Maintain and extend existing SceneKit 3D scenes and visualizations
 
 # SceneKit
 
-Maintain existing node-based 3D scenes, materials, lighting, animation, and physics. Use RealityKit for new projects or major modernization work.
-
-**Deprecation notice (WWDC 2025):** SceneKit is officially deprecated across all
-Apple platforms and is now in maintenance mode (critical bug fixes only). Existing
-apps continue to work. For new projects or major updates, Apple recommends
-RealityKit. See WWDC 2025 session 288 for migration guidance.
+Maintain existing SceneKit scenes only. Apple deprecated SceneKit at WWDC 2025 and limits it to maintenance; route new projects, major modernization, and USD/USDZ pipelines to RealityKit. Existing apps continue to work.
 
 ## Contents
 
@@ -370,12 +365,24 @@ path. For new projects, significant updates, or SCN-to-USD asset conversion,
 handoff to the RealityKit skill.
 
 ```swift
-guard let scene = SCNScene(named: "art.scnassets/ship.scn") else { return }
-let scene = try SCNScene(url: Bundle.main.url(
-    forResource: "model", withExtension: "dae")!,
-    options: [.checkConsistency: true])
-guard let modelNode = scene.rootNode.childNode(withName: "mesh", recursively: true) else { return }
+enum SceneAssetError: Error { case missingResource, missingNode(String) }
+
+func loadCheckedScene() throws -> SCNScene {
+    guard let url = Bundle.main.url(forResource: "model", withExtension: "dae")
+    else { throw SceneAssetError.missingResource }
+
+    let scene = try SCNScene(url: url, options: [.checkConsistency: true])
+    guard scene.rootNode.childNode(withName: "mesh", recursively: true) != nil
+    else { throw SceneAssetError.missingNode("mesh") }
+    return scene
+}
 ```
+
+Use this as an authoring/import gate: stop on a consistency or required-node
+failure, fix the source asset or import options, then repeat the same check.
+For generated `.scn` files, load
+[Scene Serialization](references/scenekit-patterns.md#scene-serialization) and
+require both export success and a checked reload before commit.
 
 Use `SCNReferenceNode` with `.onDemand` loading policy for large models. For
 import-time unit conversion, use `SCNSceneSource.LoadingOption`:
@@ -472,6 +479,8 @@ dynamicNode.physicsBody?.applyForce(SCNVector3(10, 0, 0), asImpulse: true)
 - [ ] Lights limited to 8 per node; `attenuationEndDistance` set on point/spot lights
 - [ ] Materials use `.physicallyBased` lighting model for realistic rendering
 - [ ] SceneKit assets use documented `.scn`, `.dae`, or `.abc` scene-source formats
+- [ ] Imported and exported assets pass consistency and required-node checks
+      before commit
 - [ ] Bundled SceneKit textures/images use asset catalogs or Xcode-optimized resources
 - [ ] Scene metadata/import options use documented API; no invented `SCNScene.Attribute.unit`
 - [ ] New USD/USDZ pipelines or significant updates are routed to RealityKit

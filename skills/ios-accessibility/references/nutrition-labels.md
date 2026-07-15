@@ -12,6 +12,7 @@ Docs:
 
 - [Current Label Categories](#current-label-categories)
 - [Claim Rule](#claim-rule)
+- [Evidence Matrix and Validation Loop](#evidence-matrix-and-validation-loop)
 - [Pass / Fail Criteria](#pass--fail-criteria)
 - [SwiftUI Audit Example](#swiftui-audit-example)
 - [Related Non-Label Accessibility Work](#related-non-label-accessibility-work)
@@ -45,6 +46,25 @@ before answering in App Store Connect.
 Keep claims accurate over time and do not treat App Store accessibility answers
 as marketing claims. Apple notes that App Review may contact developers to
 update intentionally misleading or harmful accessibility labels.
+
+## Evidence Matrix and Validation Loop
+
+Create one row for every common task on every supported device type. Test only
+the feature claims that apply to that task, and link each result to reproducible
+evidence rather than a general statement that the app is accessible.
+
+| Device | Common task | Feature claim | Evidence | Result | Owner |
+|---|---|---|---|---|---|
+| iPhone | Complete checkout | VoiceOver | Test steps, recording, and issue link | Pass/Fail | Team or person |
+
+For each proposed label:
+
+1. Inventory common tasks and applicable device types.
+2. Test every applicable matrix cell against the criteria below.
+3. Fix failed cells, then repeat the same task from its initial state.
+4. Claim the label only when every applicable common-task cell passes.
+5. Re-run the matrix after material UI or media changes and correct App Store
+   Connect answers when support changes.
 
 ## Pass / Fail Criteria
 

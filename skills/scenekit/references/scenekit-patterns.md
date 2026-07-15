@@ -357,6 +357,23 @@ let url = FileManager.default.temporaryDirectory.appendingPathComponent("scene.s
 let success = scene.write(to: url, options: nil, delegate: nil) { totalProgress, error, _ in
     print("Export progress: \(totalProgress)")
 }
+
+guard success else { throw SceneSerializationError.exportFailed }
+let reloaded = try SCNScene(url: url, options: [.checkConsistency: true])
+guard reloaded.rootNode.childNodes.isEmpty == false else {
+    throw SceneSerializationError.missingContent
+}
+```
+
+Treat this as a development or test gate: fix the source scene or export options
+after failure, then repeat the export and checked reload. Do not loop over the
+same deterministic invalid asset at runtime.
+
+```swift
+enum SceneSerializationError: Error {
+    case exportFailed
+    case missingContent
+}
 ```
 
 ### Loading Options and Scene Attributes

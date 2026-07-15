@@ -5,9 +5,9 @@ description: "Manages iOS Simulator devices and app tests with xcrun simctl: lif
 
 # iOS Simulator
 
-Manage iOS Simulator devices and test app behavior from the command line using `xcrun simctl`. Covers the full device lifecycle, app deployment, push and location simulation, permission control, screenshot and video recording, log streaming, and compile-time simulator detection.
-
-For common subcommands, syntax, and examples, see [references/simctl-commands.md](references/simctl-commands.md).
+Load [the simctl command reference](references/simctl-commands.md) when you need
+complete command tables, JSON parsing, privacy/status-bar values, Logger filter
+setup, or boot recovery commands.
 
 ## Contents
 
@@ -55,7 +55,7 @@ xcrun simctl create "My Test Phone" "iPhone 16 Pro" "com.apple.CoreSimulator.Sim
 
 Device types and runtime identifiers in examples throughout this skill are illustrative. Run `simctl list devicetypes` and `simctl list runtimes` to find the identifiers available on your system.
 
-The returned UDID identifies the device for all subsequent commands. Use descriptive names to distinguish devices in `simctl list` output.
+Use the returned UDID for subsequent commands.
 
 ### Boot, Shutdown, Erase, Delete
 
@@ -90,7 +90,8 @@ xcrun simctl shutdown booted
 
 If multiple simulators are booted, `booted` picks one of them non-deterministically. Prefer explicit UDIDs when running parallel simulators.
 
-In scripts and CI, use `xcrun simctl bootstatus <UDID> -b` before install, launch, push, or location commands. If you call `simctl boot` separately, follow it with `xcrun simctl bootstatus <UDID>` before continuing.
+In scripts and CI, `xcrun simctl bootstatus <UDID> -b` is the canonical
+boot-and-readiness gate before install, launch, push, or location commands.
 
 ## App Install and Launch
 
@@ -143,8 +144,6 @@ xcrun simctl get_app_container booted com.example.MyApp data
 xcrun simctl get_app_container booted com.example.MyApp group.com.example.shared
 ```
 
-Use these paths to inspect sandboxed files, databases, or UserDefaults during debugging.
-
 ## Testing Workflows
 
 ### Push Notification Simulation
@@ -175,7 +174,7 @@ xcrun simctl push booted com.example.MyApp payload.json
 echo '{"aps":{"alert":"Quick test"}}' | xcrun simctl push booted com.example.MyApp -
 ```
 
-This simulates local delivery only — no APNs connection is involved. Use this to test payload handling, notification display, and notification actions. Always verify on a real device before shipping to confirm APNs delivery works end to end.
+This tests local payload handling and notification UI, not APNs delivery.
 
 ### Location Simulation
 
@@ -291,30 +290,9 @@ xcrun simctl spawn booted log stream \
     --predicate 'process == "MyApp"'
 ```
 
-### Combining with os.Logger
-
-Design subsystems and categories for filterability:
-
-```swift
-import os
-
-let networkLogger = Logger(subsystem: "com.example.app", category: "networking")
-let uiLogger = Logger(subsystem: "com.example.app", category: "ui")
-
-func fetchData() async throws -> Data {
-    networkLogger.debug("Starting request to /api/data")
-    let (data, response) = try await URLSession.shared.data(from: url)
-    networkLogger.info("Received \(data.count) bytes, status: \((response as? HTTPURLResponse)?.statusCode ?? 0)")
-    return data
-}
-```
-
-Then filter the log stream to see only networking output:
-
-```bash
-xcrun simctl spawn booted log stream --level debug \
-    --predicate 'subsystem == "com.example.app" AND category == "networking"'
-```
+Load [Logger and Filtered Streaming](references/simctl-commands.md#logger-and-filtered-streaming)
+when defining `Logger` subsystems/categories and matching `log stream`
+predicates.
 
 ## Compile-Time Simulator Detection
 
@@ -342,15 +320,8 @@ Prefer compile-time checks (`#if targetEnvironment(simulator)`) over runtime che
 
 ## Simulator Limitations
 
-When classifying a test as Simulator-supported or hardware-required, separate "can trigger this behavior" from "can validate real-device fidelity":
-
-- Simulator-supported triggers/proxies: local push with `simctl push`, location changes, memory warnings, Face ID or Touch ID enrollment/match/nonmatch menu actions, manual iCloud sync trigger, privacy grants/resets, status bar overrides, screenshots, and video capture.
-- Hardware-required validation: APNs delivery, BLE and NFC, real camera or microphone input, motion sensors, Secure Enclave, App Attest, automatic iCloud propagation/conflicts/background behavior, CPU throughput, general processing speed, networking throughput or latency, Metal shader correctness, GPU limits, memory bandwidth, frame timing, memory pressure, Jetsam, and thermal behavior.
-
-Do not classify "iCloud sync" as a single hardware-only item. Split it explicitly:
-
-- Simulator-supported: manual iCloud sync triggering and basic app response to sync callbacks.
-- Hardware-required: automatic iCloud propagation, multiple real devices/accounts, conflict resolution, notification-triggered sync, background delivery, and account/device state differences.
+Use this table as the authoritative classification. A supported trigger or proxy
+does not establish real-device fidelity.
 
 | Capability | Simulator Support |
 |-----------|------------------|
@@ -368,11 +339,9 @@ Do not classify "iCloud sync" as a single hardware-only item. Split it explicitl
 | Bluetooth (Core Bluetooth) | No — use a real device for BLE testing |
 | CarPlay display simulation | Supported through Simulator's external display/CarPlay option; still verify in vehicle or device setups |
 | Face ID / Touch ID hardware | No hardware — use Features > Face ID / Touch ID menu in Simulator |
-| Memory warnings, manual iCloud sync trigger, location changes | Supported through Simulator menus or `simctl` where available |
-| Automatic iCloud sync behavior | Not fully simulated — validate notification-triggered sync, real account/device propagation, conflicts, and background behavior on hardware |
+| Memory warnings, location changes, manual iCloud sync trigger | Supported through Simulator menus or `simctl`; manual sync can test app callback handling |
+| Automatic iCloud propagation and conflicts | Hardware required for real accounts/devices, notification-triggered sync, background delivery, conflicts, and account/device state differences |
 | Cellular network conditions | No — use Network Link Conditioner on Mac |
-
-Treat Simulator performance as a functional smoke signal only. Device verification must cover CPU processing, networking throughput/latency, graphics and Metal behavior, memory bandwidth/pressure and Jetsam, frame timing, and thermals—even when the reported concern names only one category.
 
 ## Common Mistakes
 
@@ -401,8 +370,8 @@ xcrun simctl install booted MyApp.app
 # WRONG — device is not booted
 xcrun simctl install <UDID> MyApp.app  # fails
 
-# CORRECT — boot first, then install
-xcrun simctl boot <UDID>
+# CORRECT — boot if needed and wait for readiness, then install
+xcrun simctl bootstatus <UDID> -b
 xcrun simctl install <UDID> MyApp.app
 xcrun simctl launch <UDID> com.example.MyApp
 ```
@@ -423,20 +392,6 @@ cleanup() {
     xcrun simctl delete "$UDID"
 }
 trap cleanup EXIT
-```
-
-### DON'T: Assume simctl push validates APNs delivery
-
-`simctl push` bypasses the entire APNs infrastructure. It tests payload parsing and notification UI, not token registration, entitlements, or server-side delivery.
-
-```bash
-# WRONG — only testing with simctl, shipping without real device testing
-xcrun simctl push booted com.example.MyApp payload.json
-# "Push works!" — no, it only proves the app handles the payload
-
-# CORRECT — use simctl for development iteration, then verify end-to-end on a real device
-# 1. simctl push during development for fast iteration
-# 2. Real device + APNs sandbox for integration testing before release
 ```
 
 ### DON'T: Keep retrying boot on a stuck simulator

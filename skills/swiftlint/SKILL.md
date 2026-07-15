@@ -139,8 +139,9 @@ Browse the full categorized list at <https://realm.github.io/SwiftLint/rule-dire
 
 1. Start with the default rule set.
 2. Create a baseline (see [Baselines](#baselines)) to suppress all existing violations.
-3. Enforce zero new violations in CI.
-4. Burn down baseline violations incrementally.
+3. Run the same strict, baseline-aware command used by CI and fix every new violation.
+4. Re-run until green before enabling another rule or starting the next cleanup batch.
+5. Burn down baseline violations incrementally without accepting baseline growth.
 
 Do not transcribe or memorize the rule directory. Look up rule identifiers and configuration options at the official rule directory when needed.
 
@@ -246,6 +247,11 @@ Key CI options:
 
 For SARIF upload to GitHub code scanning, add `github/codeql-action/upload-sarif` after the lint step.
 
+After any configuration, baseline, or rule change, run the exact CI lint command
+locally or in a validation job. On a nonzero exit, inspect and fix the new
+violations, then rerun the same command until it passes; do not regenerate the
+baseline merely to hide the failure.
+
 For full CI recipes and reporter details, see [references/plugins-run-scripts-and-integrations.md](references/plugins-run-scripts-and-integrations.md).
 
 ## Integration Decision Tree
@@ -318,6 +324,8 @@ For nested config resolution, remote configs, and CLI multi-config details, see 
 - [ ] SwiftLint version is pinned (via SPM plugin resolution, Brewfile, or CI config)
 - [ ] Build tool plugin is enabled for each target that should be linted
 - [ ] CI runs `swiftlint --strict` (or with `--baseline` for incremental adoption)
+- [ ] Baseline does not grow unintentionally, and CI is green before the next
+      rule or cleanup batch
 - [ ] No `--fix` / `--autocorrect` in build phases
 - [ ] Inline suppressions target specific rules, not `all`
 - [ ] Inline suppressions include a comment explaining why

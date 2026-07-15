@@ -140,23 +140,6 @@ Image("photo")
     )
 ```
 
-With persisted scale:
-
-```swift
-@State private var currentScale = 1.0
-@GestureState private var gestureScale = 1.0
-
-Image("photo")
-    .scaleEffect(currentScale * gestureScale)
-    .gesture(
-        MagnifyGesture(minimumScaleDelta: 0.01)
-            .updating($gestureScale) { value, state, _ in state = value.magnification }
-            .onEnded { value in
-                currentScale = min(max(currentScale * value.magnification, 0.5), 5.0)
-            }
-    )
-```
-
 ## RotateGesture (iOS 17+)
 
 `RotateGesture` is the newer alternative to `RotationGesture`. Tracks two-finger rotation angle.
@@ -173,20 +156,8 @@ Rectangle()
     )
 ```
 
-With persisted rotation:
-
-```swift
-@State private var currentAngle = Angle.zero
-@GestureState private var gestureAngle = Angle.zero
-
-Rectangle()
-    .rotationEffect(currentAngle + gestureAngle)
-    .gesture(
-        RotateGesture()
-            .updating($gestureAngle) { value, state, _ in state = value.rotation }
-            .onEnded { value in currentAngle += value.rotation }
-    )
-```
+For persisted, clamped magnification and combined rotation examples, load
+[references/gesture-patterns.md](references/gesture-patterns.md).
 
 ## Gesture Composition
 
@@ -274,29 +245,17 @@ Three modifiers control gesture priority in the view hierarchy:
 | `.simultaneousGesture()` | Added gesture processes at the same priority as existing gestures. |
 
 ```swift
-// Default: the child tap wins on the image; the parent handles empty stack space.
-VStack {
-    Image(systemName: "star.fill")
-        .onTapGesture { handleChild() }
+let parentTap = TapGesture().onEnded { handleParent() }
 
-    Rectangle().fill(.blue)
-}
-.gesture(TapGesture().onEnded { handleParent() })
-
-// Use simultaneousGesture when both handlers should run on child content.
 VStack {
     Image(systemName: "star.fill")
         .onTapGesture { handleChild() }
 }
-.simultaneousGesture(TapGesture().onEnded { handleParent() })
-
-// Use highPriorityGesture only when the parent should win.
-VStack {
-    Text("Child")
-        .gesture(TapGesture().onEnded { handleChild() })
-}
-.highPriorityGesture(TapGesture().onEnded { handleParent() })
+.simultaneousGesture(parentTap) // Both handlers run on child content.
 ```
+
+Use `.gesture(parentTap)` for the default lower-precedence parent gesture, or
+`.highPriorityGesture(parentTap)` when the added parent gesture should win.
 
 ### GestureMask
 
@@ -357,42 +316,13 @@ extension View {
 
 ### 1. Misreading parent/child gesture precedence
 
-```swift
-// DON'T: Assume parent .gesture() overrides the child tap
-VStack {
-    Image(systemName: "star.fill")
-        .onTapGesture { childAction() }
-}
-.gesture(TapGesture().onEnded { parentAction() })
-
-// DO: Pick the relationship explicitly
-VStack {
-    Image(systemName: "star.fill")
-        .onTapGesture { childAction() }
-}
-.simultaneousGesture(TapGesture().onEnded { parentAction() })
-
-// Or use .highPriorityGesture() when the parent should take precedence.
-```
+Do not assume a parent `.gesture()` overrides child gestures. Choose the
+relationship explicitly as shown in [Adding Gestures to Views](#adding-gestures-to-views).
 
 ### 2. Using `@State` instead of `@GestureState` for transient state
 
-```swift
-// DON'T: @State doesn't auto-reset — view stays offset after gesture ends
-@State private var dragOffset = CGSize.zero
-
-DragGesture()
-    .onChanged { value in dragOffset = value.translation }
-    .onEnded { _ in dragOffset = .zero }  // manual reset required
-
-// DO: @GestureState auto-resets when gesture ends
-@GestureState private var dragOffset = CGSize.zero
-
-DragGesture()
-    .updating($dragOffset) { value, state, _ in
-        state = value.translation
-    }
-```
+Use `@GestureState` for values that should reset when recognition ends; keep
+persistent results in `@State`. See [`@GestureState`](#gesturestate).
 
 ### 3. Not using .updating() for intermediate feedback
 

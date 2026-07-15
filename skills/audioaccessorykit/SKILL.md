@@ -1,6 +1,6 @@
 ---
 name: audioaccessorykit
-description: "Support audio accessory features like automatic switching using AudioAccessoryKit. Use when implementing automatic audio routing for paired accessories, registering audio accessory configuration from the container app, updating placement or connected audio source identifiers from an app extension, or handling AccessoryControlDevice capabilities and errors."
+description: "Support automatic audio switching for paired third-party Bluetooth headphones or earbuds with AudioAccessoryKit. Use when a companion app registers an audio accessory, an app extension reports worn/removed placement or connected source-device changes, or AccessoryControlDevice capabilities and errors need handling. Do not use for general AVAudioSession routing, Bluetooth transport, or initial accessory pairing."
 ---
 
 # AudioAccessoryKit
@@ -53,6 +53,12 @@ import AudioAccessoryKit
 | iOS | 26.4+ |
 | iPadOS | 26.4+ |
 
+In the current Xcode 26.6 toolchain, AudioAccessoryKit is present in the device
+SDK but not the iPhone Simulator 26.5 SDK. Use a physical-device destination
+for this target. If the rest of the app must build for Simulator, isolate target
+membership or guard the import and implementation with
+`#if canImport(AudioAccessoryKit)` and provide a simulator stub.
+
 ## Session Management
 
 ### Registering an Accessory
@@ -103,8 +109,12 @@ config.devicePlacement = .onHead
 try await device.update(config)
 ```
 
-The update call is async and can throw `AccessoryControlDevice.Error` on
-failure. Apple marks `update(_:)` as app-extension-only.
+Treat this as a gated write workflow: confirm registration declared the
+capability, copy and mutate `device.configuration`, then `try await update(_:)`.
+The method returns no configuration value; update an app-side mirror only after
+the call succeeds. On failure, use the disposition in
+[Error Handling](#error-handling). Apple marks `update(_:)` as
+app-extension-only.
 
 ## Audio Switching
 
@@ -268,13 +278,19 @@ do {
         // Coordinate container-app registration again
         break
     case .unknown:
-        // Log and retry
-        break
+        // Log, surface, or propagate; Apple does not classify this as transient
+        throw error
     @unknown default:
-        break
+        throw error
     }
 }
 ```
+
+Do not infer that `.invalidated` or `.unknown` is transient. Correct invalid
+capabilities or request parameters, discard an invalidated handle and notify
+the container app to re-evaluate registration where appropriate, and surface unspecified errors. Load
+[Error Recovery Patterns](references/audioaccessorykit-patterns.md#error-recovery-patterns)
+for the complete disposition and invalidation handoff.
 
 ## Common Mistakes
 
@@ -298,11 +314,11 @@ connections change; stale identifiers reduce switching accuracy.
 // WRONG -- ignores invalidation, keeps using stale device reference
 try await device.update(config)  // Throws .invalidated, unhandled
 
-// CORRECT -- catch invalidation and ask the container app to re-register
+// CORRECT -- discard the handle and let the container re-evaluate registration
 do {
     try await device.update(config)
 } catch AccessoryControlDevice.Error.invalidated {
-    await notifyContainerAppToRegisterAgain(accessory)
+    await notifyContainerAppToReevaluateRegistration(accessory)
 }
 ```
 

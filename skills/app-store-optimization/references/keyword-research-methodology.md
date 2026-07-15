@@ -29,9 +29,12 @@ Apple documents the main App Store search signals as text relevance, including m
 
 ### Indexing behavior details
 
-- Avoid plurals of words already included in singular form; Apple treats them as duplicates.
+- Do not include both singular and plural forms of the same term; Apple treats
+  them as duplicates.
 - Do not repeat words from the app name, subtitle, or category in the keyword field.
 - Use spaces only inside real keyword phrases; do not add spaces after commas.
+- Keep each comma-separated keyword longer than two characters and the complete
+  field at or below 100 UTF-8 bytes.
 - Include separate related terms when both are genuine search terms, such as "photo" and "photography".
 
 ## Research Process
@@ -163,12 +166,12 @@ Fixes: no spaces, no duplicates of title/subtitle, no filler words, all terms ar
 
 **Before** (title is "RunMate -- Running Tracker"):
 ```
-running,tracker,run,jog,marathon,5k,pace,distance,route,gps,heart,rate,training,fitness,health
+running,tracker,run,jog,marathon,race,pace,distance,route,gps,heart,rate,training,fitness,health
 ```
 Issues: "running", "tracker", and "run" duplicate the title -- 17 characters wasted.
 
 **After:**
 ```
-jog,marathon,5k,pace,distance,route,gps,heart,rate,training,fitness,health,stride,tempo,interval
+jog,marathon,race,pace,distance,route,gps,heart,rate,training,fitness,health,stride,tempo,interval
 ```
 Fixes: removed title duplicates, added 3 new high-value terms with the recovered space.

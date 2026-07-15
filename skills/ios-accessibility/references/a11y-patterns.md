@@ -10,7 +10,6 @@
 - System Accessibility Preferences
 - UIKit Accessibility Patterns
 - AppKit Accessibility Patterns
-- Common Mistakes Checklist
 - Voice Control Patterns
 - Switch Control Patterns
 - Full Keyboard Access Patterns
@@ -210,16 +209,6 @@ NSAccessibility.post(
 
 Use `.announcementRequested` when assistive apps need to announce transient status. Use state-specific notifications such as `.valueChanged` when the accessible value changed.
 
-## Common Mistakes Checklist
-
-- Direct trait assignment instead of `.accessibilityAddTraits`
-- Missing focus restoration after dismissing sheets
-- Ungrouped list rows creating excessive swipe stops
-- Icon-only buttons missing labels
-- Ignoring Reduce Motion, Reduce Transparency, or Increase Contrast
-- Fixed font sizes that break Dynamic Type
-- Tap targets smaller than 44x44 points
-
 ## Voice Control Patterns
 
 Voice Control generates tap targets from accessibility labels. Labels must be speakable and unique within the visible screen.
@@ -391,8 +380,15 @@ func testSwipeToDeleteAlternative() throws {
 
     let cell = app.cells["task-buy-groceries"]
     XCTAssertTrue(cell.exists)
+    try app.performAccessibilityAudit(for: [.action])
 
-    // Verify accessibility identifier is set for test targeting
-    XCTAssertEqual(cell.identifier, "task-buy-groceries")
+    // Verify the custom gesture has a discoverable, operable alternative.
+    let deleteButton = app.buttons["Delete Buy groceries"]
+    XCTAssertTrue(deleteButton.exists)
+    deleteButton.tap()
+    XCTAssertFalse(cell.exists)
 }
 ```
+
+The audit and behavioral assertion complement, but do not replace, manual
+VoiceOver and Switch Control testing of the custom action.

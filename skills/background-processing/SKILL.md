@@ -111,8 +111,7 @@ struct MyApp: App {
 ## BGAppRefreshTask Patterns
 
 Short-lived tasks (~30 seconds) for fetching small data updates. The system
-decides when to launch based on usage patterns. Review notes should say
-`earliestBeginDate` is a lower-bound hint and the system may run the task later.
+decides when to launch; `earliestBeginDate` is only a lower-bound hint.
 
 ```swift
 func scheduleAppRefresh() {
@@ -120,7 +119,6 @@ func scheduleAppRefresh() {
         identifier: "com.example.app.refresh"
     )
     request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
-    // earliestBeginDate is a lower-bound hint; the system may delay launch.
     do {
         try BGTaskScheduler.shared.submit(request)
     } catch {
@@ -153,8 +151,8 @@ func handleAppRefresh(task: BGAppRefreshTask) {
 ## BGProcessingTask Patterns
 
 Long-running tasks (minutes) for maintenance, data processing, or cleanup.
-Runs only when device is idle and (optionally) charging. Review notes should say
-`earliestBeginDate` is a lower-bound hint and the system may run the task later.
+They run while the device is idle and can require external power; the same
+`earliestBeginDate` lower-bound rule applies.
 
 ```swift
 func scheduleProcessingTask() {
@@ -164,7 +162,6 @@ func scheduleProcessingTask() {
     request.requiresNetworkConnectivity = false
     request.requiresExternalPower = true
     request.earliestBeginDate = Date(timeIntervalSinceNow: 60 * 60)
-    // earliestBeginDate is a lower-bound hint; the system may delay launch.
     do {
         try BGTaskScheduler.shared.submit(request)
     } catch {
@@ -383,63 +380,18 @@ try BGTaskScheduler.shared.submit(request)  // Throws .notPermitted
 
 ### 2. Not calling setTaskCompleted(success:)
 
-```swift
-// DON'T: Return without marking completion -- system penalizes future scheduling
-func handleRefresh(task: BGAppRefreshTask) {
-    Task {
-        let data = try await fetchData()
-        await store.update(data)
-        // Missing: task.setTaskCompleted(success:)
-    }
-}
-
-// DO: Always call setTaskCompleted on every code path
-func handleRefresh(task: BGAppRefreshTask) {
-    let work = Task {
-        do {
-            let data = try await fetchData()
-            await store.update(data)
-            task.setTaskCompleted(success: true)
-        } catch {
-            task.setTaskCompleted(success: false)
-        }
-    }
-    task.expirationHandler = {
-        work.cancel()
-        task.setTaskCompleted(success: false)
-    }
-}
-```
+Use the canonical app-refresh or processing handler above: every success,
+failure, and cancellation path reports completion exactly once.
 
 ### 3. Ignoring the expiration handler
 
-```swift
-// DON'T: Assume your task will run to completion
-func handleCleanup(task: BGProcessingTask) {
-    Task { await heavyWork() }
-    // No expirationHandler -- system terminates ungracefully
-}
-
-// DO: Set expirationHandler to cancel work and mark completed
-func handleCleanup(task: BGProcessingTask) {
-    let work = Task { await heavyWork() }
-    task.expirationHandler = {
-        work.cancel()
-        task.setTaskCompleted(success: false)
-    }
-}
-```
+Use the same canonical handler to cancel in-flight work and report failure from
+`expirationHandler`.
 
 ### 4. Scheduling too frequently
 
-```swift
-// DON'T: Request refresh every minute -- system throttles aggressively
-request.earliestBeginDate = Date(timeIntervalSinceNow: 60)
-
-// DO: Use reasonable intervals (15+ minutes for refresh)
-request.earliestBeginDate = Date(timeIntervalSinceNow: 15 * 60)
-// earliestBeginDate is a hint -- the system chooses actual launch time
-```
+The scheduling sections own the lower-bound rule. Avoid minute-scale refresh
+requests; the system still chooses actual launch time.
 
 ### 5. Over-relying on background time
 

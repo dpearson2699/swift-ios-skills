@@ -266,35 +266,9 @@ Image models expect `CVPixelBuffer` input. Use `CGImage` conversion for photos
 from the camera or photo library. Vision's `VNCoreMLRequest` handles this
 automatically; manual conversion is needed only for direct `MLModel` prediction.
 
-```swift
-import CoreVideo
-
-func createPixelBuffer(from cgImage: CGImage, width: Int, height: Int) -> CVPixelBuffer? {
-    var pixelBuffer: CVPixelBuffer?
-    let attrs: [CFString: Any] = [
-        kCVPixelBufferCGImageCompatibilityKey: true,
-        kCVPixelBufferCGBitmapContextCompatibilityKey: true,
-    ]
-    CVPixelBufferCreate(kCFAllocatorDefault, width, height,
-                        kCVPixelFormatType_32ARGB, attrs as CFDictionary, &pixelBuffer)
-
-    guard let buffer = pixelBuffer else { return nil }
-    CVPixelBufferLockBaseAddress(buffer, [])
-    let context = CGContext(
-        data: CVPixelBufferGetBaseAddress(buffer),
-        width: width, height: height,
-        bitsPerComponent: 8, bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
-        space: CGColorSpaceCreateDeviceRGB(),
-        bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
-    )
-    context?.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-    CVPixelBufferUnlockBaseAddress(buffer, [])
-    return buffer
-}
-```
-
-For additional preprocessing patterns (normalization, center-cropping), see
-[references/coreml-swift-integration.md](references/coreml-swift-integration.md).
+Load [Image Preprocessing](references/coreml-swift-integration.md#image-preprocessing)
+for the complete checked `CVPixelBuffer` conversion and additional normalization
+or cropping patterns.
 
 ## Multi-Model Pipelines
 
@@ -357,20 +331,8 @@ try handler.perform([request])
 ### MLComputePlan (iOS 17.4+)
 
 Inspect which compute device each operation will use before running predictions.
-
-```swift
-let computePlan = try await MLComputePlan.load(
-    contentsOf: modelURL, configuration: config
-)
-guard case let .program(program) = computePlan.modelStructure else { return }
-guard let mainFunction = program.functions["main"] else { return }
-
-for operation in mainFunction.block.operations {
-    let deviceUsage = computePlan.deviceUsage(for: operation)
-    let estimatedCost = computePlan.estimatedCost(of: operation)
-    print("\(operation.operatorName): \(String(describing: deviceUsage?.preferred))")
-}
-```
+Load [MLComputePlan Detailed Usage](references/coreml-swift-integration.md#mlcomputeplan-detailed-usage-ios-174)
+for model-structure traversal, device usage, and estimated-cost inspection.
 
 ### Instruments
 

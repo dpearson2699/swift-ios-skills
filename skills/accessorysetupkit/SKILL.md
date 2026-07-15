@@ -5,13 +5,9 @@ description: "Discover and configure Bluetooth and Wi-Fi accessories using Acces
 
 # AccessorySetupKit
 
-Privacy-preserving accessory discovery and setup for Bluetooth and Wi-Fi
-devices. Replaces broad Bluetooth/Wi-Fi permission prompts with a
-system-provided picker that grants per-accessory access with a single tap (iOS 18+).
-
-After setup, apps continue using CoreBluetooth and NetworkExtension for
-communication. AccessorySetupKit handles only the discovery and authorization
-step.
+Use the iOS 18+ system picker for privacy-preserving Bluetooth/Wi-Fi accessory
+discovery and authorization, then hand off communication to CoreBluetooth or
+NetworkExtension.
 
 ## Contents
 
@@ -368,16 +364,11 @@ Migration rules:
 ## Review Checklist
 
 - [ ] `NSAccessorySetupSupports` added to Info.plist with `Bluetooth` and/or `WiFi`
-- [ ] Bluetooth-specific plist keys (`NSAccessorySetupBluetoothServices`, `NSAccessorySetupBluetoothNames`, `NSAccessorySetupBluetoothCompanyIdentifiers`) match descriptor values
 - [ ] Session activated before calling `showPicker`
 - [ ] Event handler uses `[weak self]` to avoid retain cycles
 - [ ] All `ASAccessoryEventType` cases handled, including `@unknown default`
 - [ ] Product images use transparent backgrounds and appropriate resolution
-- [ ] `ssid` and `ssidPrefix` are never set simultaneously on a descriptor
-- [ ] Picker presentation tied to explicit user action, not automatic
-- [ ] `CBCentralManager` not initialized until after migration completes (if migrating)
 - [ ] `bluetoothIdentifier` or `ssid` from `ASAccessory` used to connect post-setup
-- [ ] Invalidated sessions replaced with new instances
 - [ ] Accessory removal events handled to clean up app state
 
 ## References

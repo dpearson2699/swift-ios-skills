@@ -5,11 +5,8 @@ description: "Access Core Motion accelerometer, gyroscope, magnetometer, device-
 
 # CoreMotion
 
-Read device sensor data -- accelerometer, gyroscope, magnetometer, pedometer,
-activity recognition, altitude, headphone motion, batched motion, and submersion
-depth -- on iOS and watchOS. CoreMotion fuses raw sensor inputs into processed
-device-motion data and provides pedometer/activity APIs for fitness and
-navigation use cases. Targets Swift 6.3 / iOS 26+.
+Read device motion, pedometer/activity, altitude, headphone, batched-workout,
+and submersion sensors with Core Motion. Scope: Swift 6.3, iOS 26+.
 
 ## Contents
 
@@ -320,61 +317,24 @@ those read-only properties.
 
 ### DON'T: Create multiple CMMotionManager instances
 
-```swift
-// WRONG -- degrades update rates for all instances
-class ViewA { let motion = CMMotionManager() }
-class ViewB { let motion = CMMotionManager() }
-
-// CORRECT -- single instance, shared across the app
-@Observable
-final class MotionService {
-    static let shared = MotionService()
-    let manager = CMMotionManager()
-}
-```
+Retain one app-level `CMMotionManager`; competing instances can reduce update
+rates.
 
 ### DON'T: Skip sensor availability checks
 
-```swift
-// WRONG -- crashes on devices without gyroscope
-motionManager.startGyroUpdates(to: .main) { data, _ in }
-
-// CORRECT -- check first
-guard motionManager.isGyroAvailable else {
-    showUnsupportedMessage()
-    return
-}
-motionManager.startGyroUpdates(to: .main) { data, _ in }
-```
+Apply the matching `is...Available` gate immediately before starting each
+sensor stream.
 
 ### DON'T: Forget to stop updates
 
-```swift
-// WRONG -- updates keep running, draining battery
-class MotionVC: UIViewController {
-    override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated)
-        motionManager.startAccelerometerUpdates(to: .main) { _, _ in }
-    }
-    // Missing viewDidDisappear stop!
-}
-
-// CORRECT -- stop in the counterpart lifecycle method
-override func viewDidDisappear(_ animated: Bool) {
-    super.viewDidDisappear(animated)
-    motionManager.stopAccelerometerUpdates()
-}
-```
+Pair every start with the matching stop in the counterpart lifecycle or task
+cancellation path.
 
 ### DON'T: Use unnecessarily high update rates
 
-```swift
-// WRONG -- 100 Hz for a compass display
-motionManager.deviceMotionUpdateInterval = 1.0 / 100.0
-
-// CORRECT -- 10 Hz is more than enough for a compass
-motionManager.deviceMotionUpdateInterval = 1.0 / 10.0
-```
+Choose the lowest rate that meets the interaction and use the
+[Update Intervals and Battery](#update-intervals-and-battery) table as a starting
+point.
 
 ### DON'T: Assume all CMMotionActivity properties are mutually exclusive
 

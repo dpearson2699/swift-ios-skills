@@ -5,13 +5,10 @@ description: "Implement, review, or improve SwiftUI Liquid Glass effects for iOS
 
 # SwiftUI Liquid Glass
 
-Liquid Glass is the dynamic translucent material introduced in iOS 26 (and iPadOS 26,
-macOS 26, tvOS 26, watchOS 26). It blurs content behind it, reflects surrounding color
-and light, and reacts to touch and pointer interactions. Standard SwiftUI components
-(tab bars, toolbars, navigation bars, sheets) adopt Liquid Glass automatically when
-built with the iOS 26 SDK. Treat custom Liquid Glass as a controls/navigation-layer
-effect, not a general content background. Use the APIs below for custom views and
-controls that need that functional layer.
+Liquid Glass is the dynamic translucent material introduced across Apple platforms
+26. Standard SwiftUI bars and presentations adopt it automatically when built with
+the current SDK. Reserve custom glass for functional controls and navigation surfaces,
+not general content backgrounds.
 
 See [references/liquid-glass.md](references/liquid-glass.md) for the full API reference with additional examples.
 
@@ -37,9 +34,8 @@ Choose the path that matches the request:
 5. Add `.interactive()` only to tappable/focusable elements.
 6. Add morphing transitions with `glassEffectID(_:in:)` where the view hierarchy
    changes with animation. Put `glassEffectTransition(_:)` on the inserted or
-   removed glass child, not on the always-present container. Name the transition
-   choice: `.matchedGeometry` for nearby effects inside container spacing;
-   `.materialize` for distant insertion/removal or no geometry match.
+   removed glass child, not on the always-present container, and choose the style
+   using [Morphing & Transitions](#morphing--transitions).
 7. Gate with `if #available(iOS 26, *)` and provide a fallback for earlier versions.
 
 ### 2. Improve an existing feature with Liquid Glass
@@ -117,32 +113,16 @@ Button("Media") { }
     .buttonStyle(.glass(.clear))    // configurable variant; verify contrast
 ```
 
-### Scroll Edge Effects and Background Extension (iOS 26+)
+### Related iOS 26 APIs
 
-These complement Liquid Glass when building custom toolbars and scroll views:
+| API | Use |
+|---|---|
+| `scrollEdgeEffectStyle` | Configure a scroll boundary's visual treatment. |
+| `backgroundExtensionEffect` | Extend one background under safe-area edges with mirrored blur. |
+| `ToolbarSpacer` | Create a visual break between toolbar items. |
 
-```swift
-ScrollView {
-    content
-}
-.scrollEdgeEffectStyle(.soft, for: .top)  // Configures edge effect at scroll boundaries
-
-// Duplicate view into mirrored copies at safe area edges with blur (e.g., under sidebars)
-content
-    .backgroundExtensionEffect()
-```
-
-### ToolbarSpacer (iOS 26+)
-
-Creates a visual break between items in toolbars:
-
-```swift
-.toolbar {
-    ToolbarItem { Button("Edit") { } }
-    ToolbarSpacer(.fixed)
-    ToolbarItem { Button("Share") { } }
-}
-```
+See the corresponding sections in
+[references/liquid-glass.md](references/liquid-glass.md) for signatures and examples.
 
 ## Code Examples
 
@@ -204,9 +184,6 @@ var body: some View {
     .buttonStyle(.glass)
 }
 ```
-
-For distant inserted or removed glass that should not morph from a nearby control,
-use `.glassEffectTransition(.materialize)` on the conditional child instead.
 
 ### Unioning views into a single glass shape
 

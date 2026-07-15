@@ -228,8 +228,8 @@ RelevantContext.location(inferred: .school)
 RelevantContext.location(inferred: .commute)
 ```
 
-Requires app location authorization plus `NSWidgetWantsLocation` in the widget
-extension.
+Apply the location row in the [Permissions](#permissions) table and check
+`CLLocationManager.isAuthorizedForWidgetUpdates` before returning clues.
 
 ### Specific Region
 
@@ -270,9 +270,7 @@ RelevantContext.fitness(.activityRingsIncomplete)
 RelevantContext.fitness(.workoutActive)
 ```
 
-Requires the specific HealthKit read types for the clue: `HKWorkoutType` for
-`.workoutActive`; `appleExerciseTime`, `appleMoveTime`, and `appleStandTime`
-for `.activityRingsIncomplete`.
+Apply the exact fitness mapping in [Permissions](#permissions).
 
 ### Sleep
 
@@ -284,7 +282,7 @@ RelevantContext.sleep(.bedtime)
 RelevantContext.sleep(.wakeup)
 ```
 
-Requires HealthKit `sleepAnalysis` permission.
+Apply the sleep mapping in [Permissions](#permissions).
 
 ## Hardware Relevance
 
@@ -429,21 +427,11 @@ finish on a physical Apple Watch; see
 
 ## Common Mistakes
 
-- **Ignoring return order.** The system may only use a subset of relevance
-  attributes. Return them sorted by priority (most important first).
-- **Mixing app and widget location setup.** The containing app requests location
-  authorization and owns the purpose strings; the widget extension declares
-  `NSWidgetWantsLocation` and checks `isAuthorizedForWidgetUpdates`.
-- **Using generic HealthKit permission for fitness clues.** Request the exact
-  HealthKit types required by the clue instead of a broad "activity" permission.
 - **Using RelevanceKit API expecting iOS behavior.** The API compiles on all
   platforms but only has effect on watchOS.
 - **Duplicate Smart Stack cards.** When offering both a timeline widget and a
   relevant widget for the same data, use `.associatedKind(_:)` to prevent
   duplication.
-- **Forgetting placeholder and preview entries.** `RelevanceEntriesProvider`
-  requires both `placeholder(context:)` and a preview branch in
-  `entry(configuration:context:)` when `context.isPreview` is true.
 - **Not calling `updateRelevantIntents`.** When using timeline providers,
   calling this only inside `timeline()` means the system has stale relevance
   data between refreshes. Update whenever data changes.
@@ -452,21 +440,16 @@ finish on a physical Apple Watch; see
 
 ## Review Checklist
 
-- [ ] `import RelevanceKit` is present alongside `import WidgetKit`
-- [ ] `RelevantContext` clues match the app's actual data model
-- [ ] Relevance attributes are ordered by priority
-- [ ] Location clues: app has purpose strings and authorization flow; widget extension has `NSWidgetWantsLocation`
-- [ ] Widget location code checks `CLLocationManager.isAuthorizedForWidgetUpdates`
-- [ ] Fitness clues request `HKWorkoutType` or activity-ring quantity types as appropriate
-- [ ] Sleep clues request HealthKit `sleepAnalysis`
-- [ ] `RelevanceEntriesProvider` implements `entry`, `placeholder`, and `relevance`
-- [ ] `context.isPreview` handled in `entry(configuration:context:)` to return preview data
-- [ ] `.associatedKind(_:)` used when a timeline widget and relevant widget show the same data
-- [ ] `RelevantIntentManager.updateRelevantIntents` called when data changes (timeline provider path)
-- [ ] `location(category:)` nil return handled
-- [ ] Mixed-framework plans keep WidgetKit, HealthKit, and MapKit/CoreLocation implementation details in sibling-skill scope
-- [ ] WidgetKit Developer Mode used for testing
-- [ ] Widget previews verify appearance across display sizes
+- [ ] Routing: RelevanceKit is watchOS-effect-only, and WidgetKit,
+      HealthKit, MapKit, and CoreLocation implementation remains in sibling scope.
+- [ ] Signals: contexts match the data model, attributes are priority-ordered,
+      and every clue uses the exact Permissions-table setup.
+- [ ] Providers: entry, placeholder, relevance, and preview paths are present;
+      location category optionals and widget-update authorization are handled.
+- [ ] Coordination: `.associatedKind(_:)` prevents duplicate cards, and
+      `updateRelevantIntents` runs whenever timeline-provider data changes.
+- [ ] Testing: Developer Mode is enabled and previews cover display sizes plus
+      granted and denied permission states.
 
 ## References
 

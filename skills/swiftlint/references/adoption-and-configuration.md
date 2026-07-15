@@ -274,13 +274,18 @@ Adopting SwiftLint in an existing project without disrupting the team:
 1. Install SwiftLint with defaults (or your team's starter config).
 2. Run once to see the violation landscape: `swiftlint --reporter json | python3 -m json.tool | head -50`
 3. Generate a baseline: `swiftlint --write-baseline .swiftlint.baseline`
-4. Commit the baseline and config. CI now passes with `--baseline .swiftlint.baseline`.
+4. Commit the baseline and config only after the baseline-aware CI command passes.
+
+**Exit gate:** configuration and baseline are committed, and the exact
+baseline-aware lint command used by CI is green.
 
 ### Phase 2: Stop the bleeding
 
 1. CI enforces `swiftlint --strict --baseline .swiftlint.baseline` — no new violations allowed.
 2. The build tool plugin shows warnings locally (developers see issues as they edit).
 3. Do not enable `--fix` in CI or build phases.
+
+**Exit gate:** CI remains green with zero new violations.
 
 ### Phase 3: Incremental cleanup
 
@@ -289,9 +294,14 @@ Adopting SwiftLint in an existing project without disrupting the team:
 3. Add opt-in rules one at a time once the team is comfortable.
 4. Move toward removing the baseline entirely as violations are cleaned up.
 
+**Exit gate:** the baseline shrinks or remains intentionally stable, and CI
+passes before the next cleanup batch or rule is added.
+
 ### Phase 4: Mature enforcement
 
 1. Baseline is empty or removed.
 2. `--strict` in CI, build tool plugin in local builds.
 3. New opt-in rules go through team review before enabling.
 4. Consider analyzer rules for high-value checks like `unused_import`.
+
+**Exit gate:** strict lint passes without a baseline.

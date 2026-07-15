@@ -287,11 +287,9 @@ VoIP pushes.
 
 ## Audio Session Coordination
 
-CallKit manages audio session activation/deactivation. Configure your audio
-session when CallKit tells you to, not before.
-Review answers should name both sides: start media only in
-`provider(_:didActivate:)`, and stop/tear down media in
-`provider(_:didDeactivate:)` or reset paths.
+CallKit owns the audio activation boundary: start media only in
+`provider(_:didActivate:)`, and stop or tear it down in
+`provider(_:didDeactivate:)` and reset paths.
 
 ```swift
 extension CallManager {
@@ -399,8 +397,6 @@ auth-key rotation and normal remote-notification setup to push-notifications.
 | An action path never calls `fulfill()` or `fail()` | Give success, cancellation, timeout, and network-error paths one terminal action. |
 | Token refresh is ignored | Send every `didUpdate pushCredentials` token to the server. |
 | Call Directory performs per-call networking | Preload sorted entries and reload the extension. |
-
-Keep translation behavior and encrypted-metadata filtering in their feature sections/reference; do not mix those entitlements into the basic audio lifecycle rule.
 
 ## Review Checklist
 

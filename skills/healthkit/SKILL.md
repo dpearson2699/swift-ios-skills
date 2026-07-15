@@ -239,8 +239,14 @@ func saveSteps(count: Double, start: Date, end: Date) async throws {
 
     try await healthStore.save(sample)
 }
-
 ```
+
+Treat `try await healthStore.save(sample)` returning as the save success gate;
+only then report success or advance app state. On failure, surface the error and
+correct the known authorization, type, unit, duration, or input problem before
+constructing another sample. A bounded query or inspection in the Health app is
+useful as an integration-test check when persistence evidence is required, but
+is not a mandatory production read after every save.
 
 Your app can only delete samples it created. Samples from other apps or Apple Watch are read-only.
 
@@ -315,15 +321,17 @@ func startWorkout() async throws {
     try await builder.beginCollection(at: Date())
 }
 
-func endWorkout(
-    session: HKWorkoutSession,
-    builder: HKLiveWorkoutBuilder
-) async throws {
-    session.end()
-    try await builder.endCollection(at: Date())
-    try await builder.finishWorkout()
-}
+// Request teardown; finalize from the delegate's .stopped transition.
+session.stopActivity(with: Date())
 ```
+
+Do not call `endCollection` and `finishWorkout` immediately after requesting the
+stop. Wait for the session delegate's `.stopped` transition, then await
+`builder.endCollection(at:)` followed by `builder.finishWorkout()`. Report the
+workout as saved and clear session state only after both operations return.
+Handle each thrown error without blindly repeating teardown. A successful
+`finishWorkout()` can return no workout object while the device is locked, so a
+`nil` result alone is not failure.
 
 For full workout lifecycle management including pause/resume, delegate handling, and multi-device mirroring, see [references/healthkit-patterns.md](references/healthkit-patterns.md).
 
@@ -412,9 +420,11 @@ HKUnit.literUnit(with: .deci)               // Deciliters
       `completionHandler` called
 - [ ] Background delivery entitlement enabled if using `enableBackgroundDelivery`
 - [ ] Background delivery tested on device and frequency caps considered
-- [ ] Workout sessions properly ended and builder finalized
+- [ ] Workout stop waits for the delegate's `.stopped` transition before
+      `endCollection` and `finishWorkout`; state clears only after successful
+      finalization
 - [ ] Workout API availability and live heart-rate sensor requirements handled
-- [ ] Write operations only for sample types the app created
+- [ ] Delete operations target only objects the app previously saved
 
 ## References
 

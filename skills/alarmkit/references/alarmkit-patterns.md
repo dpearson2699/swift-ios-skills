@@ -23,29 +23,6 @@ End-to-end pattern for scheduling a wake-up alarm with snooze support.
 
 ```swift
 import AlarmKit
-import AppIntents
-
-struct StopAlarmIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Stop Alarm"
-    @Parameter(title: "Alarm ID") var alarmID: String
-    init() {}
-    init(alarmID: String) { self.alarmID = alarmID }
-    func perform() async throws -> some IntentResult {
-        try AlarmManager.shared.stop(id: UUID(uuidString: alarmID)!)
-        return .result()
-    }
-}
-
-struct SnoozeAlarmIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Snooze Alarm"
-    @Parameter(title: "Alarm ID") var alarmID: String
-    init() {}
-    init(alarmID: String) { self.alarmID = alarmID }
-    func perform() async throws -> some IntentResult {
-        try AlarmManager.shared.countdown(id: UUID(uuidString: alarmID)!)
-        return .result()
-    }
-}
 
 struct WakeUpMetadata: AlarmMetadata {
     var label: String
@@ -81,8 +58,6 @@ func scheduleWakeUpAlarm(
             time: .init(hour: hour, minute: minute), repeats: .never
         )),
         attributes: attributes,
-        stopIntent: StopAlarmIntent(alarmID: id.uuidString),
-        secondaryIntent: SnoozeAlarmIntent(alarmID: id.uuidString),
         sound: .default
     )
     return try await manager.schedule(id: id, configuration: config)
@@ -99,18 +74,6 @@ End-to-end pattern for a countdown timer with pause/resume support.
 
 ```swift
 import AlarmKit
-import AppIntents
-
-struct StopTimerIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Stop Timer"
-    @Parameter(title: "Timer ID") var timerID: String
-    init() {}
-    init(timerID: String) { self.timerID = timerID }
-    func perform() async throws -> some IntentResult {
-        try AlarmManager.shared.stop(id: UUID(uuidString: timerID)!)
-        return .result()
-    }
-}
 
 struct CookingTimerMetadata: AlarmMetadata {
     var recipeName: String
@@ -154,7 +117,6 @@ func startCookingTimer(
     let config = AlarmManager.AlarmConfiguration.timer(
         duration: durationSeconds,
         attributes: attributes,
-        stopIntent: StopTimerIntent(timerID: id.uuidString),
         sound: .default
     )
     return try await manager.schedule(id: id, configuration: config)
@@ -470,8 +432,6 @@ func scheduleAlarmWithSnooze(
             time: .init(hour: hour, minute: minute), repeats: .never
         )),
         attributes: attributes,
-        stopIntent: StopAlarmIntent(alarmID: id.uuidString),
-        secondaryIntent: SnoozeAlarmIntent(alarmID: id.uuidString),
         sound: .default
     )
     return try await AlarmManager.shared.schedule(id: id, configuration: config)
@@ -507,7 +467,6 @@ func scheduleAlarmWithOpenAction(hour: Int, minute: Int) async throws -> Alarm {
             time: .init(hour: hour, minute: minute), repeats: .never
         )),
         attributes: attributes,
-        stopIntent: StopAlarmIntent(alarmID: id.uuidString),
         secondaryIntent: OpenAppIntent(),
         sound: .default
     )

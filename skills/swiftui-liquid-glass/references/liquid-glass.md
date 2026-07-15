@@ -14,6 +14,7 @@
 - [DefaultGlassEffectShape](#defaultglasseffectshape)
 - [Scroll Edge Effect](#scroll-edge-effect)
 - [Background Extension (Split Views)](#background-extension-split-views)
+- [Toolbar Spacing](#toolbar-spacing)
 - [Availability Gating](#availability-gating)
 - [Performance Guidelines](#performance-guidelines)
 - [Accessibility Considerations](#accessibility-considerations)
@@ -390,6 +391,18 @@ NavigationSplitView {
 
 Also available as `backgroundExtensionEffect(isEnabled:)` for conditional use.
 Apply with discretion — typically to a single background view in the detail column.
+
+## Toolbar Spacing
+
+Use `ToolbarSpacer` on iOS 26+ to create a visual break between toolbar items:
+
+```swift
+.toolbar {
+    ToolbarItem { Button("Edit") { } }
+    ToolbarSpacer(.fixed)
+    ToolbarItem { Button("Share") { } }
+}
+```
 
 ## Availability Gating
 

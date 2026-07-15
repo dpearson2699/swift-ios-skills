@@ -343,18 +343,6 @@ eligible recurring payments**. StoreKit is for virtual goods, app features, and
 digital-content subscriptions. Using the wrong framework leads to App Review
 rejection.
 
-```swift
-// WRONG: Using StoreKit to sell a physical product
-let product = try await Product.products(for: ["com.example.tshirt"])
-
-// CORRECT: Use Apple Pay for physical goods
-let request = PKPaymentRequest()
-request.paymentSummaryItems = [
-    PKPaymentSummaryItem(label: "T-Shirt", amount: NSDecimalNumber(string: "29.99")),
-    PKPaymentSummaryItem(label: "My Store", amount: NSDecimalNumber(string: "29.99"))
-]
-```
-
 ### DON'T: Hardcode merchant ID in multiple places
 
 ```swift
@@ -371,81 +359,6 @@ enum PaymentConfig {
     static let countryCode = "US"
     static let currencyCode = "USD"
     static let supportedNetworks: [PKPaymentNetwork] = [.visa, .masterCard, .amex]
-}
-```
-
-### DON'T: Forget the total line item
-
-The last item in `paymentSummaryItems` is the total row. If you only list line
-items, the payment sheet uses the final line item as the Pay line instead of
-your business name.
-
-```swift
-// WRONG: No total item
-request.paymentSummaryItems = [
-    PKPaymentSummaryItem(label: "Widget", amount: NSDecimalNumber(string: "9.99"))
-]
-
-// CORRECT: Last item is the total with your merchant name
-request.paymentSummaryItems = [
-    PKPaymentSummaryItem(label: "Widget", amount: NSDecimalNumber(string: "9.99")),
-    PKPaymentSummaryItem(
-        label: "My Store",
-        amount: NSDecimalNumber(string: "9.99")
-    ) // Total
-]
-```
-
-### DON'T: Use binary floating-point values for money
-
-```swift
-// WRONG: PassKit amounts are NSDecimalNumber values
-PKPaymentSummaryItem(label: "Widget", amount: 9.99)
-
-// CORRECT: Construct decimal amounts explicitly
-PKPaymentSummaryItem(label: "Widget", amount: NSDecimalNumber(string: "9.99"))
-```
-
-### DON'T: Skip the canMakePayments check
-
-```swift
-// WRONG: Show Apple Pay button without checking
-PayWithApplePayButton(.buy) { startPayment() }
-
-// CORRECT: Only show when available
-if PKPaymentAuthorizationController.canMakePayments(
-    usingNetworks: PaymentConfig.supportedNetworks
-) {
-    PayWithApplePayButton(.buy) { startPayment() }
-} else {
-    // Show alternative checkout or setup button
-    Button("Set Up Apple Pay") { /* guide user */ }
-}
-```
-
-### DON'T: Dismiss the controller before completing authorization
-
-Keep the authorization controller retained while presented, because its delegate
-property is weak. Dismiss only after the sheet finishes.
-
-```swift
-// WRONG: Dismissing inside didAuthorizePayment
-func paymentAuthorizationController(
-    _ controller: PKPaymentAuthorizationController,
-    didAuthorizePayment payment: PKPayment,
-    handler completion: @escaping (PKPaymentAuthorizationResult) -> Void
-) {
-    controller.dismiss() // Too early -- causes blank sheet
-    completion(.init(status: .success, errors: nil))
-}
-
-// CORRECT: Dismiss only in paymentAuthorizationControllerDidFinish
-func paymentAuthorizationControllerDidFinish(
-    _ controller: PKPaymentAuthorizationController
-) {
-    controller.dismiss { [weak self] in
-        self?.paymentController = nil
-    }
 }
 ```
 

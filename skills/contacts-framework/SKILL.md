@@ -5,9 +5,8 @@ description: "Read, create, update, and pick contacts using the Contacts and Con
 
 # Contacts Framework
 
-Fetch, create, update, and pick contacts from the user's Contacts database using
-`CNContactStore`, `CNSaveRequest`, and `CNContactPickerViewController`. Targets
-Swift 6.3 / iOS 26+.
+Use `CNContactStore`, `CNSaveRequest`, and `CNContactPickerViewController` to
+fetch, create, update, or pick contacts in Swift 6.3 / iOS 26+ apps.
 
 ## Contents
 
@@ -217,6 +216,20 @@ func deleteContact(identifier: String) throws {
 }
 ```
 
+### Save Result and Recovery
+
+`try store.execute(saveRequest)` returning without throwing is the save success
+checkpoint. Update an app-side cache or success UI only after that return. If it
+throws, surface or propagate the error, keep the unsaved intent available to the
+user, and correct the known cause—such as authorization, a read-only container,
+or invalid input—before building a fresh request. Serialize overlapping saves,
+do not access a request while `execute(_:)` is using it, and refetch a possibly
+stale contact before a corrected retry when access permits. Do not blindly
+repeat the same destructive request or require a universal read-back that the
+current access level may not permit. Load
+[Extended Contacts Patterns](references/contacts-patterns.md) for multi-select,
+vCard, and optimized-search workflows.
+
 ## Contact Picker
 
 `CNContactPickerViewController` lets users pick contacts without granting full
@@ -421,7 +434,9 @@ func loadContacts() async throws -> [CNContact] {
 - [ ] Only needed `CNKeyDescriptor` keys included in fetch requests
 - [ ] `CNContactFormatter.descriptorForRequiredKeys(for:)` used when formatting names
 - [ ] Mutable copy created via `mutableCopy()` before modifying contacts
-- [ ] `CNSaveRequest` used for all create/update/delete operations
+- [ ] Every create/update/delete uses `CNSaveRequest`; app state advances only
+      after `execute(_:)` succeeds, and failures are surfaced before a corrected
+      request is constructed
 - [ ] Heavy fetches (`enumerateContacts`) run off the main thread
 - [ ] `CNContactStoreDidChange` observed to refresh cached contacts
 - [ ] `CNContactPickerViewController` used when full Contacts access is unnecessary

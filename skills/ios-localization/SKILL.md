@@ -39,8 +39,8 @@ Toggle("Dark Mode", isOn: $dark)
 String(localized: "No items found")
 LocalizedStringResource("Order placed")
 
-// NOT extracted -- plain String, not localized
-let msg = "Hello"                 // just a String, invisible to Xcode
+// Plain String: not extracted or localized
+let msg = "Hello"
 ```
 
 Xcode adds discovered keys to the String Catalog automatically. Mark translations as Needs Review, Translated, or Stale in the editor.
@@ -73,16 +73,20 @@ For the full generated symbols reference — extraction states, symbol derivatio
 
 ## String Types -- Decision Guide
 
+| Context | Type | Why |
+|---|---|---|
+| SwiftUI view text | `LocalizedStringKey` (implicit) | SwiftUI performs lookup |
+| View models, services, and errors | `String(localized:)` | Resolves to `String` now |
+| App Intents, widgets, deferred system UI | `LocalizedStringResource` | Carries localization until display |
+| Non-user-facing logs and analytics | Plain `String` | No localization needed |
+
 ### LocalizedStringKey (SwiftUI default)
 
 SwiftUI views accept `LocalizedStringKey` for their text parameters. String literals are implicitly converted -- no extra work needed.
 
 ```swift
-// These all create a LocalizedStringKey lookup automatically:
 Text("Welcome back")
-Label("Profile", systemImage: "person")
 Button("Delete") { deleteItem() }
-.navigationTitle("Home")
 ```
 
 Use `LocalizedStringKey` when passing strings directly to SwiftUI view initializers. Do not construct `LocalizedStringKey` manually in most cases.
@@ -92,21 +96,9 @@ Use `LocalizedStringKey` when passing strings directly to SwiftUI view initializ
 Use for any localized string outside a SwiftUI view initializer. Returns a plain `String`. The literal/interpolated initializer is available iOS 15+; resolving a `LocalizedStringResource` is iOS 16+.
 
 ```swift
-// Basic
 let title = String(localized: "Welcome back")
-
-// With default value (key differs from English text)
 let msg = String(localized: "error.network",
                  defaultValue: "Check your internet connection")
-
-// With table and bundle
-let label = String(localized: "onboarding.title",
-                   table: "Onboarding",
-                   bundle: .module)
-
-// With comment for translators
-let btn = String(localized: "Save",
-                 comment: "Button title to save the current document")
 ```
 
 For Swift package localization failures, answer with this explicit resource checklist before bundle debugging:
@@ -122,38 +114,14 @@ Existing `NSLocalizedString` literal keys can still be exported or migrated by X
 Use when a string must be carried as a localizable value for later resolution, especially for App Intents, widgets, notifications, generated localizable symbols, and system APIs that accept `LocalizedStringResource` directly. Use `String(localized:)` when code needs the resolved string immediately. Available iOS 16+.
 
 ```swift
-// App Intents require LocalizedStringResource
 struct OrderCoffeeIntent: AppIntent {
     static var title: LocalizedStringResource = "Order Coffee"
 }
 
-// Widgets
-struct MyWidget: Widget {
-    var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "timer",
-                            provider: Provider()) { entry in
-            TimerView(entry: entry)
-        }
-        .configurationDisplayName(LocalizedStringResource("Timer"))
-    }
-}
-
-// Pass around without resolving yet
 func showAlert(title: LocalizedStringResource, message: LocalizedStringResource) {
-    // Resolved at display time with the user's current locale
     let resolved = String(localized: title)
 }
 ```
-
-### When to use each type
-
-| Context | Type | Why |
-|---------|------|-----|
-| SwiftUI view text parameters | `LocalizedStringKey` (implicit) | SwiftUI handles lookup automatically |
-| Computed strings in view models / services | `String(localized:)` | Returns resolved `String` for logic |
-| App Intents, widgets, system APIs | `LocalizedStringResource` | Framework resolves at display time |
-| Error messages shown to users | `String(localized:)` | Resolved in catch blocks |
-| Logging / analytics (not user-facing) | Plain `String` | No localization needed |
 
 ## String Interpolation in Localized Strings
 
@@ -216,17 +184,14 @@ String Catalogs support device-specific text (iPhone vs iPad vs Mac):
 // Mac:    "Click to continue"
 ```
 
-### Grammar Agreement (iOS 15+)
-
 Use Foundation's automatic grammar agreement markup when nearby words must
 inflect for a value's number or gender. Preserve the complete inflecting phrase
 for translators; see [Automatic Grammar Agreement](https://sosumi.ai/documentation/foundation/automatic-grammar-agreement).
 
 ## FormatStyle -- Locale-Aware Formatting
 
-Never hard-code date, number, or measurement formats. Use `FormatStyle` (iOS 15+) so formatting adapts to the user's locale automatically.
-
-Locale-aware formatting matters even in single-language apps because user locale affects separators, calendars, currency, units, names, and list formatting. When giving user-facing formatting advice, explicitly recommend testing or previewing output under multiple locales such as `en_US`, `de_DE`, `ar_SA`, and `ja_JP`.
+Never hard-code user-facing formats. Use `FormatStyle` and test output under
+contrasting locales such as `en_US`, `de_DE`, `ar_SA`, and `ja_JP`.
 
 `ios-localization` owns `FormatStyle` guidance when the issue is locale-aware user-facing display, including numbers, dates, currency, units, names, lists, calendars, separators, and locale preview/testing. For custom `FormatStyle`, `ParseableFormatStyle`, parsing, `Date.IntervalFormatStyle`, `URL.FormatStyle`, or reusable formatter API design, route to `swift-formatstyle`; keep `ios-localization` advice to locale risks and testing unless implementation is explicitly requested.
 
@@ -275,24 +240,8 @@ temp.formatted(.measurement(width: .abbreviated))
 // US: "72 F" (auto-converts!) / FR: "22 C"
 ```
 
-### Duration, PersonName, Lists
-
-```swift
-// Duration
-let dur = Duration.seconds(3661)
-dur.formatted(.time(pattern: .hourMinuteSecond))  // "1:01:01"
-
-// Person names
-let name = PersonNameComponents(givenName: "John", familyName: "Doe")
-name.formatted(.name(style: .long))   // "John Doe" (US) / "Doe John" (JP)
-
-// Lists
-let items = ["Apples", "Oranges", "Bananas"]
-items.formatted(.list(type: .and))    // "Apples, Oranges, and Bananas" (EN)
-                                      // "Apples, Oranges et Bananas" (FR)
-```
-
-For the complete FormatStyle reference, custom styles, and RTL layout, see [references/formatstyle-locale.md](references/formatstyle-locale.md).
+Load [references/formatstyle-locale.md](references/formatstyle-locale.md) for
+duration, names, lists, custom styles, variant matrices, and deeper RTL testing.
 
 ## Right-to-Left (RTL) Layout
 
@@ -334,47 +283,6 @@ Text("+1 (555) 123-4567")
 
 ## Common Mistakes
 
-### DON'T: Use NSLocalizedString in new Swift code
-```swift
-// LEGACY -- Xcode can export literal keys, but new Swift code should use modern APIs
-let title = NSLocalizedString("welcome_title", comment: "Welcome screen title")
-```
-
-### DO: Use String(localized:) or let SwiftUI handle it
-```swift
-// CORRECT
-let title = String(localized: "welcome_title",
-                   defaultValue: "Welcome!",
-                   comment: "Welcome screen title")
-// Or in SwiftUI, just:
-Text("Welcome!")
-```
-
-### DON'T: Concatenate localized strings
-```swift
-// WRONG -- word order varies by language
-let greeting = String(localized: "Hello") + ", " + name + "!"
-```
-
-### DO: Use string interpolation
-```swift
-// CORRECT -- translators can reorder placeholders
-let greeting = String(localized: "Hello, \(name)!")
-```
-
-### DON'T: Hard-code date/number formats
-```swift
-// WRONG -- US-only format
-let formatter = DateFormatter()
-formatter.dateFormat = "MM/dd/yyyy"  // Meaningless in most countries
-```
-
-### DO: Use FormatStyle
-```swift
-// CORRECT -- adapts to user locale
-Text(date, format: .dateTime.month().day().year())
-```
-
 ### DON'T: Use fixed-width layouts
 ```swift
 // WRONG -- German text is ~30% longer than English
@@ -386,46 +294,6 @@ Text(title).frame(width: 120)
 // CORRECT
 Text(title).fixedSize(horizontal: false, vertical: true)
 // Or use VStack/wrapping that accommodates expansion
-```
-
-### DON'T: Use .left / .right for alignment
-```swift
-// WRONG -- does not flip for RTL
-HStack { Spacer(); text }.padding(.left, 16)
-```
-
-### DO: Use .leading / .trailing
-```swift
-// CORRECT
-HStack { Spacer(); text }.padding(.leading, 16)
-```
-
-### DON'T: Put user-facing strings as plain String outside SwiftUI
-```swift
-// WRONG -- not localized
-let errorMessage = "Something went wrong"
-showAlert(message: errorMessage)
-```
-
-### DO: Use LocalizedStringResource for deferred resolution
-```swift
-// CORRECT
-let errorMessage = LocalizedStringResource("Something went wrong")
-showAlert(message: String(localized: errorMessage))
-```
-
-### DON'T: Use natural-language text as the key for manually-managed strings
-```swift
-// WRONG -- typo silently creates a new key, stales the old one, no compiler error
-Text("Wlecome Back")  // was "Welcome Back" -- silent localization break
-```
-
-### DO: Use stable symbol-style keys and enable generated symbols
-```swift
-// CORRECT -- key is stable; UI text lives in the catalog's default value
-Text(.welcomeBack)  // generated from key "welcome_back" in String Catalog
-// Or without generated symbols:
-String(localized: "welcome_back", defaultValue: "Welcome Back")
 ```
 
 ### DON'T: Skip pseudolocalization testing
