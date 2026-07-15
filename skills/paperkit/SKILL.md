@@ -7,11 +7,12 @@ description: "Add drawings, shapes, and a consistent markup experience using Pap
 
 > **Beta-sensitive.** PaperKit is new in iOS/iPadOS 26, macOS 26, and visionOS 26. API surface may change. Verify details against current Apple documentation before shipping.
 
-PaperKit provides a unified markup experience — the same framework powering markup in Notes, Screenshots, QuickLook, and Journal. It combines PencilKit drawing with structured markup elements (shapes, text boxes, images, lines) in a single canvas managed by `PaperMarkupViewController`. Requires Swift 6.3 and the iOS 26+ SDK.
+PaperKit combines PencilKit drawing with structured markup elements such as shapes, text, images, and lines in a canvas managed by `PaperMarkupViewController`.
 
 ## Contents
 
 - [Setup](#setup)
+- [Workflow](#workflow)
 - [PaperMarkupViewController](#papermarkupviewcontroller)
 - [PaperMarkup Data Model](#papermarkup-data-model)
 - [Insertion Controllers](#insertion-controllers)
@@ -21,6 +22,16 @@ PaperKit provides a unified markup experience — the same framework powering ma
 - [Common Mistakes](#common-mistakes)
 - [Review Checklist](#review-checklist)
 - [References](#references)
+
+## Workflow
+
+1. Choose the document bounds, supported `FeatureSet`, and persistence version before constructing UI.
+2. Create `PaperMarkup`, embed `PaperMarkupViewController`, and keep the controller, tool picker, and insertion controller alive for the view lifetime.
+3. Use the platform-appropriate insertion surface and keep PencilKit drawing inside the PaperKit document boundary.
+4. Save off the main thread, retain a thumbnail for forward-incompatible content, and test round-trip loading with the same feature set.
+5. On failure, restore the original document bytes, fix the feature-set/version/controller mismatch, and rerun edit, save, relaunch, load, thumbnail fallback, and undo checks.
+
+Load [references/paperkit-patterns.md](references/paperkit-patterns.md) for full platform setup, tool picker wiring, persistence, thumbnails, custom feature sets, programmatic construction, and migration.
 
 ## Setup
 
@@ -398,79 +409,13 @@ struct DocumentMarkupScreen: View {
 
 ## Common Mistakes
 
-### Mismatched FeatureSets
-
-```swift
-// DON'T
-let paperVC = PaperMarkupViewController(markup: m, supportedFeatureSet: .latest)
-let editVC = MarkupEditViewController(supportedFeatureSet: .version1, additionalActions: [])
-
-// DO — use the same FeatureSet for both
-let features = FeatureSet.latest
-let paperVC = PaperMarkupViewController(markup: m, supportedFeatureSet: features)
-let editVC = MarkupEditViewController(supportedFeatureSet: features, additionalActions: [])
-```
-
-### Ignoring Content Version on Load
-
-```swift
-// DON'T
-let markup = try PaperMarkup(dataRepresentation: data)
-paperVC.markup = markup
-
-// DO — check version compatibility
-let markup = try PaperMarkup(dataRepresentation: data)
-if markup.featureSet.isSubset(of: paperVC.supportedFeatureSet) {
-    paperVC.markup = markup
-} else {
-    showVersionMismatchAlert()
-}
-```
-
-### Blocking Main Thread with Serialization
-
-```swift
-// DON'T — dataRepresentation() is async, don't try to work around it
-
-// DO — save from an async context
-func paperMarkupViewControllerDidChangeMarkup(_ controller: PaperMarkupViewController) {
-    guard let markup = controller.markup else { return }
-    Task {
-        let data = try await markup.dataRepresentation()
-        try data.write(to: fileURL)
-    }
-}
-```
-
-### Forgetting to Retain the Tool Picker
-
-```swift
-// DON'T — local variable gets deallocated
-func viewDidLoad() {
-    let toolPicker = PKToolPicker()
-    toolPicker.addObserver(paperVC)
-}
-
-// DO — store as instance property
-var toolPicker: PKToolPicker!
-```
-
-### Wrong Insertion Controller for Platform
-
-```swift
-// DON'T — treat MarkupEditViewController as unavailable on Mac Catalyst
-
-// DO — use the right UI for the presentation style
-#if os(macOS)
-let toolbar = MarkupToolbarViewController(supportedFeatureSet: features)
-#elseif targetEnvironment(macCatalyst)
-// Catalyst supports both: toolbar-style UI or UIKit popover insertion.
-let toolbar = MarkupToolbarViewController(supportedFeatureSet: features)
-let editVC = MarkupEditViewController(supportedFeatureSet: features, additionalActions: [])
-#else
-let editVC = MarkupEditViewController(supportedFeatureSet: features, additionalActions: [])
-#endif
-```
+| Mistake | Fix |
+|---|---|
+| View, insertion UI, and saved document use mismatched feature sets | Choose one supported `FeatureSet` and use it across the editing session. |
+| Loaded content is assigned without a version check | Verify `markup.featureSet.isSubset(of: supportedFeatureSet)` or show the saved thumbnail/fallback. |
+| Serialization blocks UI or overlaps unsafely | Await `dataRepresentation()` off the interaction path and debounce autosaves. |
+| Tool picker is a local variable | Retain it for the controller/view lifetime. |
+| Wrong insertion surface for the platform | Use `MarkupToolbarViewController` on macOS; use `MarkupEditViewController` on UIKit, with Catalyst supporting either presentation. |
 
 ## Review Checklist
 

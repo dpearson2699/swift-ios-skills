@@ -6,8 +6,7 @@ description: "Control smart-home accessories and commission Matter devices using
 # HomeKit
 
 Control home automation accessories and commission Matter devices. HomeKit manages
-the home/room/accessory model, action sets, and triggers. MatterSupport handles
-device commissioning into your ecosystem. Targets Swift 6.3 / iOS 26+.
+the home/room/accessory model, action sets, and triggers. MatterSupport handles device commissioning into your ecosystem.
 
 ## Contents
 
@@ -45,18 +44,13 @@ For Matter commissioning into your own ecosystem:
 3. Add `com.apple.developer.matter.allow-setup-payload` only if the caller
    supplies a Matter setup payload programmatically
 
-### Availability Check
+### Framework Boundary
 
-```swift
-import HomeKit
-
-let homeManager = HMHomeManager()
-
-// HomeKit is available on iPhone, iPad, Apple TV, Apple Watch,
-// Mac Catalyst, and Vision Pro.
-// Authorization is handled through the delegate:
-homeManager.delegate = self
-```
+| Need | Framework |
+|---|---|
+| Homes, rooms, accessories, characteristics, actions, triggers | HomeKit |
+| Commission Matter into the app ecosystem | MatterSupport |
+| Privacy-preserving BLE/Wi-Fi accessory selection | AccessorySetupKit, then CoreBluetooth/NetworkExtension |
 
 ## HomeKit Data Model
 
@@ -400,68 +394,13 @@ final class MatterHandler: MatterAddDeviceExtensionRequestHandler {
 
 ## Common Mistakes
 
-### DON'T: Access homes before the delegate fires
-
-```swift
-// WRONG -- homes array is empty until delegate is called
-let manager = HMHomeManager()
-let homes = manager.homes  // Always empty here
-
-// CORRECT -- wait for delegate
-func homeManagerDidUpdateHomes(_ manager: HMHomeManager) {
-    let homes = manager.homes  // Now populated
-}
-```
-
-### DON'T: Confuse HomeKit setup with Matter commissioning
-
-```swift
-// WRONG -- using HomeKit accessory setup for a Matter ecosystem app
-home.addAndSetupAccessories { error in }
-
-// CORRECT -- use MatterAddDeviceRequest for Matter ecosystem commissioning
-let request = MatterAddDeviceRequest(
-    topology: topology,
-    setupPayload: nil,
-    showing: .allDevices
-)
-try await request.perform()
-```
-
-### DON'T: Forget required configuration
-
-Matter ecosystem commissioning needs the MatterSupport extension, principal
-handler class, and Matter Bonjour services. Add the setup-payload entitlement
-only when your app provides setup codes directly.
-
-### DON'T: Create multiple HMHomeManager instances
-
-```swift
-// WRONG -- each instance loads the full database independently
-class ScreenA { let manager = HMHomeManager() }
-class ScreenB { let manager = HMHomeManager() }
-
-// CORRECT -- single shared instance
-@Observable
-final class HomeStore {
-    static let shared = HomeStore()
-    let homeManager = HMHomeManager()
-}
-```
-
-### DON'T: Write characteristics without checking metadata
-
-```swift
-// WRONG -- writing a value outside the valid range
-characteristic.writeValue(500) { _ in }
-
-// CORRECT -- check metadata first
-if let metadata = characteristic.metadata,
-   let maxValue = metadata.maximumValue?.intValue {
-    let safeValue = min(brightness, maxValue)
-    characteristic.writeValue(safeValue) { _ in }
-}
-```
+| Mistake | Fix |
+|---|---|
+| Reading homes before the delegate update | Create one manager, set its delegate, and wait for `homeManagerDidUpdateHomes`. |
+| HomeKit setup is used for Matter ecosystem commissioning | Use `MatterAddDeviceRequest` plus the configured MatterSupport extension. |
+| Matter configuration is incomplete | Verify principal handler, Bonjour services, and the setup-payload entitlement only when applicable. |
+| Multiple `HMHomeManager` instances load the database | Share one retained manager/store. |
+| Characteristic write ignores metadata | Check permissions, format, min/max/step, and allowed values before writing. |
 
 ## Review Checklist
 

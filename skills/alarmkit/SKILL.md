@@ -381,18 +381,7 @@ Without the extension, alarms may be dismissed unexpectedly or fail to alert,
 though the system can still show a fallback countdown UI in limited cases such
 as after a device restart before first unlock.
 
-When explaining AlarmKit boundaries, say the ownership line explicitly. AlarmKit
-owns alarm authorization, `AlarmManager` scheduling and state, `AlarmAttributes`,
-`AlarmPresentation`, `AlarmPresentationState`, sound, and system Stop/Repeat/Open
-App alarm actions for alarm and timer experiences. The firing alert remains
-system-rendered alarm UI; do not describe AlarmKit as a general custom
-notification UI surface.
-
-Custom countdown or paused alarm UI belongs in a Widget Extension
-`ActivityConfiguration` for the same `AlarmAttributes<Metadata>` type and
-`AlarmPresentationState`. Name the Apple-sourced alarm surfaces together: Lock
-Screen, Dynamic Island, StandBy, and paired Apple Watch. Do not claim Smart Stack
-as an AlarmKit surface.
+AlarmKit owns authorization, `AlarmManager` scheduling/state, alarm attributes and presentation, sound, and system Stop/Repeat/Open App actions. The firing alert is system-rendered; only countdown and paused states use the widget extension's `ActivityConfiguration`. Supported alarm surfaces are Lock Screen, Dynamic Island, StandBy, and paired Apple Watch—not Smart Stack.
 
 Route ordinary Home Screen or Smart Stack widgets, `WidgetFamily` layout choices,
 widget timelines, and `WidgetCenter` reload policy to `widgetkit`. Route non-alarm

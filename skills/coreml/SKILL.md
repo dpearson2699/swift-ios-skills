@@ -7,7 +7,6 @@ description: "Integrate Core ML models in iOS apps for on-device machine learnin
 
 Load, configure, and run Core ML models in iOS apps. This skill covers the
 Swift side: model loading, prediction, MLTensor, profiling, and deployment.
-Target iOS 26+ with Swift 6.3, backward-compatible to iOS 14 unless noted.
 
 > **Scope boundary:** Python-side model conversion, optimization (quantization,
 > palettization, pruning), and framework selection live in the `apple-on-device-ai`
@@ -174,6 +173,11 @@ Use `predictions(fromBatch:)` when batching without explicit
 `MLPredictionOptions`. Use `predictions(from:options:)` only when passing both an
 `MLBatchProvider` and `MLPredictionOptions`; `predictions(from:)` by itself is
 not the no-options batch API.
+
+Validate a representative single input before batching. Then verify batch
+output count/order, feature types, domain invariants, and agreement with the
+single-input result. On failure, fix the deterministic input, shape, model, or
+configuration issue before rerunning fixtures and physical-device profiling.
 
 ### Stateful Prediction (iOS 18+)
 
@@ -380,49 +384,18 @@ Run outside the debugger for accurate results (Xcode: Product > Profile).
 
 ## Model Deployment
 
-### Bundle vs Downloaded Assets
-
-| Strategy | Pros | Cons |
-|---|---|---|
-| Bundle in app | Instant availability, works offline | Increases app download size |
-| Background Assets | Preferred for large or updateable model assets | Requires asset-pack setup |
-| On-demand resources | Smaller initial download for existing ODR apps | Legacy technology; prefer Background Assets for new work |
-| CloudKit / server | Maximum flexibility | Requires network, longer setup |
-
-### Size Considerations
-
-- For iOS/iPadOS 18+, App Store Connect lists a 4 GB thinned app bundle limit
-  and 8 GB thinned ODR asset-pack limit.
-- Prefer Background Assets for new large or updateable model assets; keep ODR
-  guidance for existing projects that already use it.
-- Pre-compile to `.mlmodelc` to skip on-device compilation
-- For downloaded `.mlmodel` or `.mlpackage` files, compile once with
-  `MLModel.compileModel(at:)`, move the resulting `.mlmodelc` out of Core ML's
-  temporary location, and cache it by model version.
-- Validate memory and performance on physical target devices, especially the
-  lowest-memory supported device. Check model load, first prediction, repeated
-  predictions, background/foreground transitions, and low-memory behavior.
-
-For Background Assets, make the asset pack locally available, resolve the model
-URL, then load the compiled model with `MLModel.load(contentsOf:configuration:)`.
-
-```swift
-// Existing On-Demand Resources project
-let request = NSBundleResourceRequest(tags: ["ml-model-v2"])
-try await request.beginAccessingResources()
-let modelURL = Bundle.main.url(forResource: "LargeModel", withExtension: "mlmodelc")!
-let model = try await MLModel.load(contentsOf: modelURL, configuration: config)
-// Call request.endAccessingResources() when done
-```
+Bundle small offline-critical models. Prefer Background Assets for new large or
+updateable assets; keep On-Demand Resources only for existing ODR projects.
+Compile downloaded source models once, persist the `.mlmodelc` by version, and
+test load, first/repeated prediction, lifecycle transitions, and memory on the
+lowest supported physical device. Load
+[deployment patterns](references/coreml-swift-integration.md) for implementation
+details.
 
 ## Memory Management
 
 - **Unload on background:** Release model references when the app enters background
   to free GPU/ANE memory. Reload on foreground return.
-- **Choose compute units by context:** use `.all` by default. Consider `.cpuOnly`
-  only when profiling or app policy shows accelerator contention, thermal state,
-  energy budget, deterministic testing, or a legitimate background execution
-  constraint makes CPU the right tradeoff.
 - **Share model instances:** Never create multiple `MLModel` instances from the same
   compiled model. Use an actor to provide shared access.
 - **Monitor memory pressure:** Large models (>100 MB) can trigger memory warnings.
@@ -437,21 +410,6 @@ lifecycle-aware loading and cache eviction.
 **DON'T:** Load models on the main thread.
 **DO:** Use `MLModel.load(contentsOf:configuration:)` async API or load on a background actor.
 **Why:** Large models can take seconds to load, freezing the UI.
-
-**DON'T:** Recompile `.mlpackage` to `.mlmodelc` on every app launch.
-**DO:** Compile once with `MLModel.compileModel(at:)` and cache the compiled URL persistently.
-**Why:** Compilation is expensive. Cache the `.mlmodelc` in Application Support.
-
-**DON'T:** Hardcode `.cpuOnly` unless you have a specific reason.
-**DO:** Use `.all` and let the system choose the optimal compute unit.
-**Why:** `.all` enables Neural Engine and GPU, which are faster and more energy-efficient.
-
-**DON'T:** Claim GPU or Neural Engine are categorically unavailable for all
-background-adjacent work.
-**DO:** Treat background execution as policy-, mode-, contention-, thermal-, and
-energy-dependent, and profile the actual workload on device.
-**Why:** Apps may be suspended, throttled, or limited by their background mode;
-`.cpuOnly` is a tradeoff, not a universal requirement.
 
 **DON'T:** Ignore `MLFeatureValue` type mismatches between input and model expectations.
 **DO:** Match types exactly -- use `MLFeatureValue(pixelBuffer:)` for images, not raw data.

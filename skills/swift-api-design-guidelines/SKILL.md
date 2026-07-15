@@ -390,27 +390,16 @@ For casing edge cases, overload patterns, and tuple/closure naming, see [referen
 
 ## Common Mistakes
 
-1. **Omitting needed argument labels.** Using `remove(position)` instead of `remove(at: position)` when the role of the argument is ambiguous without the label.
-
-2. **Using -ed when -ing is correct.** Applying `stripped()` when the past participle is ungrammatical — use `stripping()` instead. Test: does "a [verb]-ed [noun]" read naturally?
-
-3. **Using verb names for side-effect-free operations.** Naming a nonmutating method `sort()` that returns a new collection — use `sorted()` to signal no mutation.
-
-4. **Naming by type instead of role.** Using `string` instead of `greeting`, or `array` instead of `elements`, when the role would be more informative.
-
-5. **Missing documentation comments.** Leaving public declarations undocumented, or writing summaries that describe the implementation rather than the purpose.
-
-6. **Not documenting non-O(1) computed properties.** Exposing a linear-time computed property without a `Complexity:` note, causing callers to assume O(1) and use it in loops.
-
-7. **Applying form- prefix to verb-based operations.** Writing `formSort()` instead of just `sort()` — the `form` prefix is only for noun-based operations (`formUnion`).
-
-8. **Factory methods without make- prefix.** Naming factory methods as `createIterator()` or `buildBuffer()` instead of `makeIterator()` and `makeBuffer()`.
-
-9. **Repeating type information in names.** Writing `removeElement(cancelButton)` or `stringValue: String` when the type is already evident from context.
-
-10. **Return-type-only overloads.** Defining overloads that differ only in return type, creating ambiguity when the compiler cannot infer the expected type.
-
-11. **Unlabeled tuple members and closure parameters.** Exposing tuples or closures in public API without naming their components, forcing callers to use positional access.
+| Mistake | Correction |
+|---|---|
+| Ambiguous or missing labels | Make the call read grammatically, such as `remove(at:)`. |
+| Wrong mutating/nonmutating form | Use imperative verbs for mutation and a grammatical `-ed`/`-ing` or noun form for copies. |
+| Names describe types or implementation | Name roles and semantic effects. |
+| Public API lacks purpose or complexity docs | Add a concise summary and document non-O(1) properties. |
+| `form` or factory prefixes are misapplied | Reserve `form` for noun operations; use `make` for factories. |
+| Type information is repeated | Remove words already clear from the declaration and context. |
+| Overloads differ only by return type | Add a semantic name or parameter distinction. |
+| Tuple or closure components are positional | Label public components and closure parameters. |
 
 ## Review Checklist
 

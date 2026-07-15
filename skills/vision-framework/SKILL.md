@@ -6,8 +6,7 @@ description: "Implement computer vision features including text recognition (OCR
 # Vision Framework
 
 Detect text, faces, barcodes, objects, and body poses in images and video using
-on-device computer vision. Patterns target iOS 26+ with Swift 6.3,
-backward-compatible where noted.
+on-device computer vision. Prefer the modern iOS 18+ request APIs and load the legacy reference only when the deployment target requires it.
 
 See [references/vision-requests.md](references/vision-requests.md) for complete code patterns and
 [references/visionkit-scanner.md](references/visionkit-scanner.md) for DataScannerViewController integration.
@@ -73,25 +72,7 @@ func recognizeText(in image: CGImage) async throws -> [String] {
 
 ### Legacy Pattern (Pre-iOS 18)
 
-Use `VNImageRequestHandler` with completion-based requests when targeting
-older deployment versions.
-
-```swift
-import Vision
-
-func recognizeTextLegacy(in image: CGImage) throws -> [String] {
-    var recognized: [String] = []
-    let request = VNRecognizeTextRequest { request, error in
-        guard let observations = request.results as? [VNRecognizedTextObservation] else { return }
-        recognized = observations.compactMap { $0.topCandidates(1).first?.string }
-    }
-    request.recognitionLevel = .accurate
-
-    let handler = VNImageRequestHandler(cgImage: image)
-    try handler.perform([request])
-    return recognized
-}
-```
+For pre-iOS 18 targets, use the corresponding `VNRequest` with `VNImageRequestHandler` or `VNSequenceRequestHandler`. Load [references/vision-requests.md](references/vision-requests.md) for complete legacy request and handler patterns.
 
 ## Text Recognition (OCR)
 
@@ -118,16 +99,7 @@ for observation in observations {
 
 ### Legacy: VNRecognizeTextRequest
 
-```swift
-let request = VNRecognizeTextRequest()
-request.recognitionLevel = .accurate
-request.recognitionLanguages = ["en-US", "fr-FR"]
-request.usesLanguageCorrection = true
-```
-
-**Key differences:** Modern API uses `Locale.Language` for languages; legacy
-uses string identifiers. Both support `.accurate` (best quality) and `.fast`
-(real-time suitable) recognition levels.
+The legacy request uses string language identifiers and the handler pattern in the reference; both generations support accurate and fast recognition levels.
 
 ## Face Detection
 
@@ -239,17 +211,7 @@ let maskBuffer = mask.pixelBuffer
 
 ### Legacy: VNGeneratePersonSegmentationRequest
 
-```swift
-let request = VNGeneratePersonSegmentationRequest()
-request.qualityLevel = .accurate  // .balanced, .fast
-request.outputPixelFormat = kCVPixelFormatType_OneComponent8
-
-let handler = VNImageRequestHandler(cgImage: cgImage)
-try handler.perform([request])
-
-guard let mask = request.results?.first?.pixelBuffer else { return }
-// Apply mask using Core Image: CIFilter.blendWithMask()
-```
+For older targets, `VNGeneratePersonSegmentationRequest` exposes its mask through the first pixel-buffer observation; use the reference's handler and mask-composition recipe.
 
 Quality levels:
 - `.accurate` -- best quality, slowest (~1s), full resolution
@@ -316,18 +278,7 @@ Modern `TrackObjectRequest` has no `trackingLevel` or `qualityLevel`.
 
 ### Legacy: VNTrackObjectRequest
 
-```swift
-let trackRequest = VNTrackObjectRequest(detectedObjectObservation: initialObservation)
-trackRequest.trackingLevel = .accurate
-
-let sequenceHandler = VNSequenceRequestHandler()
-// For each frame:
-try sequenceHandler.perform([trackRequest], on: pixelBuffer)
-if let result = trackRequest.results?.first {
-    let updatedBounds = result.boundingBox
-    trackRequest.inputObservation = result
-}
-```
+For older targets, use `VNTrackObjectRequest` with one retained `VNSequenceRequestHandler` and feed each result back as the next input observation. The reference contains the complete loop.
 
 ## Other Request Types
 

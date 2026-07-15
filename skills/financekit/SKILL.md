@@ -414,50 +414,11 @@ do {
 }
 ```
 
-### 4. Requesting full snapshots instead of resumable queries
+### 4. Replacing resumable history with snapshots
 
-DON'T -- fetch everything on every launch:
-```swift
-let allTransactions = try await store.transactions(query: TransactionQuery(
-    sortDescriptors: [SortDescriptor(\Transaction.transactionDate)],
-    predicate: nil, limit: nil, offset: nil
-))
-```
+Use the canonical transaction-history loop above and persist each `newToken` only after local deletes and upserts commit. Keep separate tokens per stream/account; on invalid-token errors, resync only the affected scope.
 
-DO -- use history tokens for incremental sync:
-```swift
-let history = store.transactionHistory(
-    forAccountID: accountID,
-    since: loadSavedToken(),
-    isMonitoring: false
-)
-for try await changes in history {
-    removeLocalRecords(withIDs: changes.deleted)
-    upsert(changes.inserted + changes.updated)
-    saveToken(changes.newToken)
-}
-```
-
-### 5. Not persisting history tokens
-
-DON'T -- discard the token:
-```swift
-for try await changes in history {
-    processChanges(changes)
-    // Token lost -- next launch reprocesses everything
-}
-```
-
-DO -- save every token:
-```swift
-for try await changes in history {
-    removeLocalRecords(withIDs: changes.deleted)
-    upsert(changes.inserted + changes.updated)
-    saveToken(changes.newToken)
-}
-```
-
-### 6. Misinterpreting credit/debit on liability accounts
+### 5. Misinterpreting credit/debit on liability accounts
 
 Both asset and liability accounts use `.debit` for outgoing money. But `.credit` means different things: on an asset account it means money received; on a liability account it means a payment or refund that increases available credit. See [references/financekit-patterns.md](references/financekit-patterns.md) for a full interpretation table.
 

@@ -42,34 +42,22 @@ See [references/charts-patterns.md](references/charts-patterns.md) for extended 
 6. Set scale domains with `.chartXScale(domain:)` / `.chartYScale(domain:)`.
 7. Add selection, scrolling, or annotations as needed.
 8. For 1000+ 2D data points, use vectorized plots (`BarPlot`, `LinePlot`, etc.).
+9. Render representative empty, typical, dense, large-text, high-contrast, and VoiceOver states; exercise selection and scrolling when present.
+10. If an encoding, axis, selection, or accessibility check fails, restore the data fixture, fix one layer, and rerun the same matrix before adding decoration.
 
 ### 2. Review existing chart code
 
-Run through the Review Checklist at the end of this file.
+Identify the data semantics before judging mark choice. Then trace every value through mark, scale, axis, style, selection, and accessibility output; run the same validation matrix used for new charts.
 
 ## Chart Container
 
 ```swift
-// Data-driven init (single-series)
 Chart(sales) { item in
     BarMark(x: .value("Month", item.month), y: .value("Revenue", item.revenue))
 }
-
-// Content closure init (multi-series, mixed marks)
-Chart {
-    ForEach(seriesA) { item in
-        LineMark(x: .value("Date", item.date), y: .value("Value", item.value))
-            .foregroundStyle(.blue)
-    }
-    RuleMark(y: .value("Target", 500))
-        .foregroundStyle(.red)
-}
-
-// Custom ID key path
-Chart(data, id: \.category) { item in
-    BarMark(x: .value("Category", item.category), y: .value("Count", item.count))
-}
 ```
+
+Use the data-driven initializer for a single collection. Use the content closure for mixed marks or multiple series, and pass `id:` when elements are not `Identifiable`. Load [references/charts-patterns.md](references/charts-patterns.md) for complete mixed-series, theming, accessibility, and 3D recipes.
 
 ## Mark Types
 

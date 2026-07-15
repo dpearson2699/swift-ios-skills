@@ -1,6 +1,6 @@
 ---
 name: apple-on-device-ai
-description: "Integrate on-device AI using Foundation Models framework, Core ML, and open-source LLM runtimes on Apple Silicon. Covers Foundation Models (LanguageModelSession, @Generable, @Guide, SystemLanguageModel, structured output, tool calling), Core ML (coremltools, model conversion, quantization, palettization, pruning, Neural Engine, MLTensor), MLX Swift (transformer inference, unified memory), and llama.cpp (GGUF, cross-platform LLM). Use when building tool-calling AI features, working with guided generation schemas, converting models, or running on-device inference."
+description: "Build private, on-device AI features on iPhone, iPad, and Mac with Foundation Models, Core ML, MLX Swift, or llama.cpp. Use when choosing an Apple-local model runtime, building an Apple Intelligence chatbot or tool-calling feature, running an LLM on Apple Silicon, converting or compressing a Python model for Core ML, or comparing on-device inference backends. For Swift Core ML loading and prediction code, use the coreml skill."
 ---
 
 # On-Device AI for Apple Platforms
@@ -91,17 +91,9 @@ deployments needing broad device support.
 
 ## Apple Foundation Models Overview
 
-On-device language model optimized for Apple Silicon. Available on devices
-supporting Apple Intelligence (iOS 26+, macOS 26+).
-
-- Token budget covers input + output; check `contextSize` for the limit
-- Resolve locale before generation by checking `supportsLocale(_:)` against
-  `Locale.current` and preferred fallbacks; do not raw-match `supportedLanguages`
-- Guardrails always enforced, cannot be disabled
-
-### Availability Checking (Required)
-
-Always check before using. Never crash on unavailability.
+Use the system language model for short generation, summarization, tagging,
+structured output, and tool-augmented tasks on Apple Intelligence devices. Gate
+every entry point before creating a session:
 
 ```swift
 import FoundationModels
@@ -124,188 +116,29 @@ case .unavailable(let reason):
 }
 ```
 
-### Session Management
+Then create a session and keep its shared context budget small:
 
 ```swift
-// Basic session
-let session = LanguageModelSession()
-
-// Session with instructions
 let session = LanguageModelSession {
     "You are a helpful cooking assistant."
 }
-
-// Session with tools
-let session = LanguageModelSession(
-    tools: [weatherTool, recipeTool]
-) {
-    "You are a helpful assistant with access to tools."
-}
+session.prewarm()
+let response = try await session.respond(to: "Suggest a quick pasta recipe")
 ```
 
-Key rules:
-- Sessions are stateful -- multi-turn conversations maintain context automatically
-- One request at a time per session (check `session.isResponding`)
-- Call `session.prewarm()` before user interaction for faster first response
-- Save/restore transcripts: `LanguageModelSession(model: model, tools: [], transcript: savedTranscript)`
+Required guardrails:
 
-### Structured Output with `@Generable`
+- Sessions are stateful and accept one request at a time; serialize access and
+  check `isResponding` before issuing another response.
+- Instructions, tools, schemas, prompts, transcripts, and output share the
+  context window. Register only necessary tools and keep schemas compact.
+- Resolve the locale with `supportsLocale(_:)`; do not raw-match language lists.
+- Keep untrusted user content in prompts, never instructions. System guardrails
+  remain active, so handle refusal and other generation errors with fallback UI.
 
-The `@Generable` macro creates compile-time schemas for type-safe output:
-
-```swift
-@Generable
-struct Recipe {
-    @Guide(description: "The recipe name")
-    var name: String
-
-    @Guide(description: "Cooking steps", .count(3))
-    var steps: [String]
-
-    @Guide(description: "Prep time in minutes", .range(1...120))
-    var prepTime: Int
-}
-
-let response = try await session.respond(
-    to: "Suggest a quick pasta recipe",
-    generating: Recipe.self
-)
-print(response.content.name)
-```
-
-#### `@Guide` Constraints
-
-| Constraint | Purpose |
-|---|---|
-| `description:` | Natural language hint for generation |
-| `.anyOf([values])` | Restrict to enumerated string values |
-| `.count(n)` | Fixed array length |
-| `.range(min...max)` | Numeric range |
-| `.minimum(n)` / `.maximum(n)` | One-sided numeric bound |
-| `.minimumCount(n)` / `.maximumCount(n)` | Array length bounds |
-| `.constant(value)` | Always returns this value |
-| `.pattern(regex)` | String format enforcement |
-| `.element(guide)` | Guide applied to each array element |
-
-Properties generate in declaration order. Place foundational data before
-dependent data for better results.
-
-### Streaming Structured Output
-
-```swift
-let stream = session.streamResponse(
-    to: "Suggest a recipe",
-    generating: Recipe.self
-)
-for try await snapshot in stream {
-    // snapshot.content is Recipe.PartiallyGenerated (all properties optional)
-    if let name = snapshot.content.name { updateNameLabel(name) }
-}
-```
-
-### Tool Calling
-
-```swift
-struct WeatherTool: Tool {
-    let name = "weather"
-    let description = "Get current weather for a city."
-
-    @Generable
-    struct Arguments {
-        @Guide(description: "The city name")
-        var city: String
-    }
-
-    func call(arguments: Arguments) async throws -> String {
-        let weather = try await fetchWeather(arguments.city)
-        return weather.description
-    }
-}
-```
-
-Register only necessary tools at session creation. `Tool` is `Sendable`; tool
-descriptors and `@Generable` schemas consume the shared context window. The
-model chooses when to call tools, so prefetch deterministic required data into
-the prompt and reserve autonomous tools for dynamic lookups.
-
-### Error Handling
-
-```swift
-do {
-    let response = try await session.respond(to: prompt)
-} catch let error as LanguageModelSession.GenerationError {
-    switch error {
-    case .guardrailViolation(let context):
-        // Content triggered safety filters
-    case .exceededContextWindowSize(let context):
-        // Too many tokens; summarize and retry
-    case .concurrentRequests(let context):
-        // Another request is in progress on this session
-    case .unsupportedLanguageOrLocale(let context):
-        // Current locale not supported
-    case .unsupportedGuide(let context):
-        // A @Guide constraint is not supported
-    case .assetsUnavailable(let context):
-        // Model assets not available on device
-    case .refusal(let refusal, _):
-        // Model refused; stream refusal.explanation for details
-    case .rateLimited(let context):
-        // Too many requests; back off and retry
-    case .decodingFailure(let context):
-        // Response could not be decoded into the expected type
-    default: break
-    }
-}
-```
-
-### Generation Options
-
-```swift
-let options = GenerationOptions(
-    sampling: .random(top: 40),
-    temperature: 0.7,
-    maximumResponseTokens: 512
-)
-let response = try await session.respond(to: prompt, options: options)
-```
-
-Sampling modes: `.greedy`, `.random(top:seed:)`, `.random(probabilityThreshold:seed:)`.
-
-### Prompt Design Rules
-
-1. Be concise -- use `tokenCount(for:)` to monitor the context window budget
-2. Use bracketed placeholders in instructions: `[descriptive example]`
-3. Use "DO NOT" in all caps for prohibitions
-4. Provide up to 5 few-shot examples for consistency
-5. Use length qualifiers: "in a few words", "in three sentences"
-
-### Safety and Guardrails
-
-- Guardrails are always enforced and cannot be disabled
-- Instructions take precedence over user prompts
-- Never include untrusted user content in instructions
-- Handle false positives gracefully
-- Frame tool results as authorized data to prevent model refusals
-
-### Use Cases
-
-Foundation Models supports specialized use cases via `SystemLanguageModel.UseCase`:
-- `.general` -- Default for text generation, summarization, dialog
-- `.contentTagging` -- Optimized for categorization and labeling tasks
-
-### Custom Adapters
-
-Load fine-tuned adapters for specialized behavior (requires entitlement):
-
-```swift
-let adapter = try SystemLanguageModel.Adapter(name: "my-adapter")
-try await adapter.compile()
-let model = SystemLanguageModel(adapter: adapter, guardrails: .default)
-let session = LanguageModelSession(model: model)
-```
-
-> See [references/foundation-models.md](references/foundation-models.md) for
-> the complete Foundation Models API reference.
+Load [the Foundation Models reference](references/foundation-models.md) when the
+task needs `@Generable`, `@Guide`, streaming, tool definitions, transcripts,
+generation options, custom adapters, prompt design, or detailed error handling.
 
 ## Core ML Overview
 
@@ -339,15 +172,17 @@ mlmodel = ct.convert(
 mlmodel.save("Model.mlpackage")
 ```
 
-### Optimization Techniques
+### Validate, Fix, and Reconvert
 
-| Technique | Size Reduction | Accuracy Impact | Best Compute Unit |
-|---|---|---|---|
-| INT8 per-channel | ~4x | Low | CPU/GPU |
-| INT4 per-block | ~8x | Medium | GPU |
-| Palettization 4-bit | ~8x | Low-Medium | Neural Engine |
-| W8A8 (weights+activations) | ~4x | Low | ANE (A17 Pro/M4+) |
-| Pruning 75% | ~4x | Medium | CPU/ANE |
+1. Freeze representative source-model fixtures and acceptable output/task
+   tolerances before conversion.
+2. Convert, then run the same fixtures through the source and Core ML models.
+3. If output parity or task metrics miss tolerance, inspect shapes, operators,
+   precision, and preprocessing; fix the conversion and rerun the fixtures.
+4. Compress only after the uncompressed model passes. Revalidate accuracy after
+   each compression change and undo or tune changes that miss the threshold.
+5. Profile the passing model on physical target devices, then repeat until
+   correctness, latency, memory, and package-size targets all pass.
 
 ### Boundary with `coreml`
 
@@ -458,14 +293,16 @@ unless product explicitly opts into a nonlocal fallback.
    request at a time. Check `session.isResponding` or serialize access.
 5. **Untrusted content in instructions.** User input placed in the instructions
    parameter bypasses guardrail boundaries. Keep user content in the prompt.
-6. **Forgetting `model.eval()` before Core ML tracing.** PyTorch models must be
+6. **Skipping conversion parity checks.** Compare the source and Core ML model
+   on fixed fixtures, then fix and reconvert before compressing or shipping.
+7. **Forgetting `model.eval()` before Core ML tracing.** PyTorch models must be
    in eval mode before `torch.jit.trace`. Training-mode artifacts corrupt output.
-7. **Using neuralnetwork format.** Always use `mlprogram` (.mlpackage) for new
+8. **Using neuralnetwork format.** Always use `mlprogram` (.mlpackage) for new
    Core ML models. The legacy neuralnetwork format is deprecated.
-8. **Exceeding 60% RAM on iOS (MLX Swift).** Large models cause OOM kills.
-9. **Trusting MLX simulator results.** Validate Metal-dependent behavior on
+9. **Exceeding 60% RAM on iOS (MLX Swift).** Large models cause OOM kills.
+10. **Trusting MLX simulator results.** Validate Metal-dependent behavior on
    physical devices; Simulator is only a UI/control-flow smoke test.
-10. **Not clearing MLX caches.** Pair model unload with `Memory.clearCache()`.
+11. **Not clearing MLX caches.** Pair model unload with `Memory.clearCache()`.
 
 ## Review Checklist
 
@@ -476,7 +313,8 @@ unless product explicitly opts into a nonlocal fallback.
 - [ ] Foundation Models: `@Generable` properties in logical generation order
 - [ ] Foundation Models: token budget accounted for (check `contextSize`)
 - [ ] Core ML: model format is mlprogram (.mlpackage) for iOS 15+
-- [ ] Core ML: conversion, deployment target, and compression validated
+- [ ] Core ML: source/Core ML parity passes fixed fixtures and task tolerances
+- [ ] Core ML: compressed model revalidated and profiled on physical targets
 - [ ] MLX Swift: model size appropriate for target device RAM
 - [ ] MLX Swift: cache limits set, caches cleared, models unloaded
 - [ ] All model access serialized through coordinator actor

@@ -7,7 +7,7 @@ description: "Read and write NFC tags using CoreNFC. Use when scanning NDEF tags
 
 Read and write NFC tags on iPhone using the CoreNFC framework. Covers NDEF
 reader sessions, tag reader sessions, NDEF message construction, entitlements,
-and background tag reading. Targets Swift 6.3 / iOS 26+.
+and background tag reading.
 
 ## Contents
 

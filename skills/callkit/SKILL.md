@@ -8,7 +8,6 @@ description: "Implement VoIP calling with CallKit and PushKit. Use when building
 Build VoIP calling features that integrate with the native iOS call UI using
 CallKit and PushKit. Covers incoming/outgoing call flows, VoIP push
 registration, audio session coordination, and call directory extensions.
-Targets Swift 6.3 / iOS 26+.
 
 ## Contents
 
@@ -392,65 +391,16 @@ auth-key rotation and normal remote-notification setup to push-notifications.
 
 ## Common Mistakes
 
-### DON'T: Fail to report a required call on VoIP push receipt
+| Mistake | Fix |
+|---|---|
+| Required VoIP push is treated as data-only | Apply the version-specific report rule, report before completion, then invoke the PushKit completion handler. |
+| Answer action is fulfilled before media/server readiness | Keep it pending while connecting; fulfill on readiness or fail and report `.failed`. |
+| Media starts before `provider(_:didActivate:)` | Prepare earlier if needed, but start only after activation and stop on deactivation/reset. |
+| An action path never calls `fulfill()` or `fail()` | Give success, cancellation, timeout, and network-error paths one terminal action. |
+| Token refresh is ignored | Send every `didUpdate pushCredentials` token to the server. |
+| Call Directory performs per-call networking | Preload sorted entries and reload the extension. |
 
-Follow the PushKit report rules above: iOS 13 SDK+ apps must report
-report-required VoIP call pushes before completion, and on iOS 26.4+
-`PKVoIPPushMetadata.mustReport` identifies which pushes are required. Missing a
-required report can terminate the app; repeated failures may stop VoIP delivery.
-
-Do not treat a required VoIP push as a data-only notification. Report the call
-to CallKit and call the PushKit completion handler from the report completion.
-
-### DON'T: Fulfill answer before the call is connected
-
-When the user answers before your app has established the server/media
-connection, leave the `CXAnswerCallAction` pending while connecting. Fulfill it
-after the call is ready; if connection fails, fail the action and report the
-call ended with `.failed`.
-
-### DON'T: Start audio before CallKit activates the session
-
-Starting your audio engine before `provider(_:didActivate:)` causes silence
-or immediate deactivation. CallKit manages session priority with the system.
-
-Prepare audio in the answer/start action if needed, then start media only from
-`provider(_:didActivate:)`.
-
-For iOS 26 call translation, set `CXProviderConfiguration.supportsAudioTranslation`
-when your service supports it and handle `CXSetTranslatingCallAction`. If a
-person mutes during a translated call, mute app input with
-`CXSetMutedCallAction`; do not deactivate upstream audio that translated audio
-depends on.
-
-For encrypted VoIP metadata, use `CXProvider.reportNewIncomingVoIPPushPayload`
-only from a notification service extension when the server cannot determine
-whether encrypted content is a VoIP call or other data. That path requires the
-`com.apple.developer.usernotifications.filtering` entitlement; otherwise send a
-normal PushKit VoIP push.
-
-### DON'T: Forget to call action.fulfill() or action.fail()
-
-Failing to fulfill or fail an action leaves the call in a limbo state and
-triggers the timeout handler.
-
-Every provider action path must eventually call `fulfill()` or `fail()`,
-including network-error and cancellation paths.
-
-### DON'T: Ignore push token refresh
-
-The VoIP push token can change at any time. If your server has a stale token,
-pushes silently fail and incoming calls never arrive.
-
-Send the token to your server every time `didUpdate pushCredentials` fires,
-not just during first-run onboarding.
-
-### DON'T: Use Call Directory for per-call lookup
-
-Call Directory extensions provide preloaded caller ID and blocking data. They
-cannot ask a web service for the incoming caller during call presentation.
-Fetch or generate the dataset ahead of time, reload the extension, and add
-entries in sorted sequential order.
+Keep translation behavior and encrypted-metadata filtering in their feature sections/reference; do not mix those entitlements into the basic audio lifecycle rule.
 
 ## Review Checklist
 

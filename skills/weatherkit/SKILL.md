@@ -6,8 +6,7 @@ description: "Fetch WeatherKit current, minute, hourly, and daily forecasts; wea
 # WeatherKit
 
 Fetch current conditions, hourly and daily forecasts, weather alerts, and
-historical statistics using `WeatherService`. Display required Apple Weather
-attribution. Targets Swift 6.3 / iOS 26+.
+historical statistics using `WeatherService`. Display required Apple Weather attribution.
 
 ## Contents
 
@@ -229,18 +228,6 @@ let minuteForecast = try await weatherService.weather(
 | `.changes` | `WeatherChanges?` | Significant upcoming weather changes (iOS 18+) |
 | `.historicalComparisons` | `HistoricalComparisons?` | Current weather compared to historical averages (iOS 18+) |
 
-### Dashboard Review Checklist
-
-For a current-temperature and alert dashboard review, explicitly cover:
-- Selective `.current, .alerts` queries instead of `weather(for:)` for every dataset
-- No unconditional `onAppear`/`.task` network fetch; use model or cache `loadIfNeeded`
-- `WeatherMetadata.expirationDate` cache freshness
-- `WeatherService.shared.attribution`, mark URLs, and `legalPageURL` beside weather data
-- Optional `alert.region`, non-optional `alert.detailsURL`, and alert detail links
-- `WeatherAvailability` only for `alertAvailability` and `minuteAvailability`
-- `Measurement<UnitTemperature>.formatted()` for displayed temperatures
-- WeatherKit capability/App ID setup and location permission when using device location
-
 ## Context Queries
 
 Use the iOS 18+ context queries when the app needs to explain why today's
@@ -280,42 +267,7 @@ func fetchAttribution() async throws -> WeatherAttribution {
 }
 ```
 
-### Displaying Attribution in SwiftUI
-
-```swift
-import SwiftUI
-import WeatherKit
-
-struct WeatherAttributionView: View {
-    let attribution: WeatherAttribution
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        VStack {
-            // Display the Apple Weather mark
-            AsyncImage(url: markURL) { image in
-                image
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 20)
-            } placeholder: {
-                EmptyView()
-            }
-
-            // Link to the legal attribution page
-            Link("Weather data sources", destination: attribution.legalPageURL)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var markURL: URL {
-        colorScheme == .dark
-            ? attribution.combinedMarkDarkURL
-            : attribution.combinedMarkLightURL
-    }
-}
-```
+Load [references/weatherkit-patterns.md](references/weatherkit-patterns.md) for the complete SwiftUI attribution view and cache integration.
 
 ### Attribution Properties
 
@@ -357,21 +309,7 @@ func checkAvailability(for location: CLLocation) async throws {
 
 ### DON'T: Ship without Apple Weather attribution
 
-Omitting attribution violates the WeatherKit terms of service and risks App Review
-rejection.
-
-```swift
-// WRONG: Show weather data without attribution
-VStack {
-    Text("72F, Sunny")
-}
-
-// CORRECT: Always include attribution
-VStack {
-    Text("72F, Sunny")
-    WeatherAttributionView(attribution: attribution)
-}
-```
+Display the appropriate Apple Weather mark and link `legalPageURL` wherever WeatherKit data appears; use `legalAttributionText` only when the legal page cannot be shown.
 
 ### DON'T: Fetch all datasets when you only need current conditions
 

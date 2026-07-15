@@ -156,23 +156,15 @@ position = .rect(MKMapRect(...))
 
 ### Map Style
 
-```swift
-.mapStyle(.standard)                                        // Default road map
-.mapStyle(.standard(elevation: .realistic, showsTraffic: true))
-.mapStyle(.imagery)                                         // Satellite
-.mapStyle(.imagery(elevation: .realistic))                  // 3D satellite
-.mapStyle(.hybrid)                                          // Satellite + labels
-.mapStyle(.hybrid(elevation: .realistic, showsTraffic: true))
-```
+Default to `.standard`; select `.imagery` or `.hybrid`, realistic elevation,
+traffic, and point-of-interest filtering only when the feature requires them.
+See [Complete Map View Setup](references/mapkit-patterns.md#complete-map-view-setup).
 
 ### Map Interaction Modes
 
-```swift
-.mapInteractionModes(.all)           // Default: pan, zoom, rotate, pitch
-.mapInteractionModes(.pan)           // Pan only
-.mapInteractionModes([.pan, .zoom])  // Pan and zoom
-.mapInteractionModes([])             // Static map (no interaction)
-```
+Keep `.all` for an interactive map. Restrict modes only for intentional gesture
+coordination; use `[]` for a static embedded map. See
+[Map in a List or ScrollView](references/mapkit-patterns.md#map-in-a-list-or-scrollview).
 
 ### Map Selection
 
@@ -426,17 +418,8 @@ func getETA(from source: MKMapItem, to destination: MKMapItem) async throws -> T
 
 ### Cycling Directions (iOS 14+)
 
-```swift
-func getCyclingDirections(to destination: MKMapItem) async throws -> MKRoute? {
-    let request = MKDirections.Request()
-    request.source = MKMapItem.forCurrentLocation()
-    request.destination = destination
-    request.transportType = .cycling
-    let directions = MKDirections(request: request)
-    let response = try await directions.calculate()
-    return response.routes.first
-}
-```
+Use `.cycling` as the request transport type; see the complete
+[cycling route](references/mapkit-patterns.md#cycling-directions-ios-14) example.
 
 ## PlaceDescriptor (iOS 26+)
 

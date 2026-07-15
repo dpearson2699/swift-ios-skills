@@ -29,9 +29,7 @@ cryptographic primitive code targeting Swift 6.3+.
 
 ## Hashing
 
-CryptoKit provides SHA256, SHA384, and SHA512 hash functions on iOS 13+.
-SHA3_256, SHA3_384, and SHA3_512 are available on iOS 26+. All conform
-to the `HashFunction` protocol.
+Use SHA256/SHA384/SHA512 on iOS 13+; SHA3_256/SHA3_384/SHA3_512 require iOS 26+. All conform to `HashFunction`.
 
 ### One-shot hashing
 
@@ -42,8 +40,6 @@ let data = Data("Hello, world!".utf8)
 let digest = SHA256.hash(data: data)
 let hex = digest.compactMap { String(format: "%02x", $0) }.joined()
 ```
-
-SHA384 and SHA512 work identically -- substitute the type name.
 
 ### SHA-3 availability
 
@@ -82,7 +78,7 @@ if expected == actual {
 
 ## HMAC
 
-HMAC provides message authentication using a symmetric key and a hash function.
+Use HMAC when a protocol requires keyed message authentication; verify with `isValidAuthenticationCode` rather than comparing serialized values yourself.
 
 ### Computing an authentication code
 
@@ -100,8 +96,6 @@ let isValid = HMAC<SHA256>.isValidAuthenticationCode(
     mac, authenticating: data, using: key
 )
 ```
-
-This uses constant-time comparison internally.
 
 ### Incremental HMAC
 

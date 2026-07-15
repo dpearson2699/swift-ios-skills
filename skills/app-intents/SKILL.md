@@ -27,16 +27,7 @@ Shortcuts, Spotlight, widgets, Control Center, and Apple Intelligence.
 
 ### Step 1: Choose the action, boundary, and surface
 
-Start from 1-3 valuable actions people want outside the app, not from the app's
-screen hierarchy. For each action:
-
-- define the smallest domain operation and result the system needs;
-- decide whether it can finish inline or must hand off into a specific app
-  destination;
-- keep the domain mutation in a shared service when inline and open-app variants
-  expose the same operation;
-- use one explicit runtime route for app handoff instead of scattering navigation
-  side effects through intent implementations.
+Start from 1-3 valuable actions people want outside the app, not from its screen hierarchy. Record one design row per action: user goal; inline result or app destination; shared domain operation; parameters and entity query; confirmation/authentication; target surface and protocol. Use one explicit runtime route for app handoff instead of scattering navigation side effects through intents.
 
 Then choose the system feature and protocol that fit that action:
 
@@ -67,7 +58,8 @@ Then choose the system feature and protocol that fit that action:
 
 ### Step 4: Verify
 
-- Build and run in Shortcuts app to confirm parameter resolution.
+- Build and run in the target system surface to confirm discovery, parameter resolution, cancellation, confirmation, authentication, result rendering, and app handoff.
+- If a step fails, reset the fixture, fix the smallest intent/entity/query boundary, and rerun the same action from the same surface before adding another action.
 - Test Siri phrases with the intent preview in Xcode.
 - Confirm `IndexedEntity` instances are indexed in a named Spotlight index.
 - Check widget configuration for `WidgetConfigurationIntent` intents.

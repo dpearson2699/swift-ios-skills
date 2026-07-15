@@ -7,7 +7,7 @@ description: "Build shared real-time experiences using GroupActivities and Share
 
 Build shared real-time experiences using the GroupActivities framework. SharePlay
 connects people over FaceTime, Messages, AirDrop, and nearby visionOS sharing,
-synchronizing media playback, app state, or custom data. Targets Swift 6.3 / iOS 26+.
+synchronizing media playback, app state, or custom data.
 
 ## Contents
 
@@ -362,20 +362,8 @@ Task {
 
 ### DON'T: Forget to call session.join()
 
-```swift
-// WRONG -- session is received but never joined
-for await session in MyActivity.sessions() {
-    self.session = session
-    // Session stays in .waiting state forever
-}
-
-// CORRECT -- join after configuring
-for await session in MyActivity.sessions() {
-    self.session = session
-    self.messenger = GroupSessionMessenger(session: session)
-    session.join()
-}
-```
+Configure the stored session, messenger, and observers, then call `join()`. The
+canonical long-lived manager in Session Lifecycle shows the required order.
 
 ### DON'T: Forget to leave or end sessions
 
@@ -441,29 +429,8 @@ player.play()  // Automatically synced to all participants
 
 ### DON'T: Observe sessions in a view that gets recreated
 
-```swift
-// WRONG -- each time the view appears, a new listener is created
-struct MyView: View {
-    var body: some View {
-        Text("Hello")
-            .task {
-                for await session in MyActivity.sessions() { }
-            }
-    }
-}
-
-// CORRECT -- observe sessions in a long-lived manager
-@Observable
-final class ActivityManager {
-    init() {
-        Task {
-            for await session in MyActivity.sessions() {
-                configureSession(session)
-            }
-        }
-    }
-}
-```
+Own the `sessions()` listener in a long-lived manager, not a recreatable view.
+Use the manager lifecycle shown above and cancel its child tasks on invalidation.
 
 ## Review Checklist
 

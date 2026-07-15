@@ -269,6 +269,8 @@ func markAllTripsAsNotFavorite() async throws {
 **Always merge changes** back into relevant contexts after batch operations.
 Batch delete does not enforce the Deny delete rule.
 
+For destructive or retryable batch work, use a proof loop: preflight the predicate and expected count, execute with an object-ID result type, merge IDs into live contexts, refetch, and assert the postcondition. On failure, restore a pristine fixture or prove the operation is idempotent before retrying; never blindly rerun a partially completed batch.
+
 ## Persistent History Tracking
 
 Track store-level changes across targets (app, extensions, widgets) and

@@ -5,7 +5,7 @@ description: "Bridges UIKit and SwiftUI with UIViewRepresentable, UIViewControll
 
 # SwiftUI-UIKit Interop
 
-Bridge UIKit and SwiftUI in both directions. Wrap UIKit views and view controllers for use in SwiftUI, embed SwiftUI views inside UIKit screens, and synchronize state across the boundary. Targets iOS 26+ with Swift 6.3 patterns; notes backward-compatible to iOS 16 unless stated otherwise.
+Bridge UIKit and SwiftUI in both directions: wrap UIKit views and controllers, embed SwiftUI in UIKit screens, and synchronize state without duplicating lifecycle ownership.
 
 See [references/representable-recipes.md](references/representable-recipes.md) for complete wrapping recipes and [references/hosting-migration.md](references/hosting-migration.md) for UIKit-to-SwiftUI migration patterns.
 
@@ -388,47 +388,16 @@ If passing closures across isolation boundaries, ensure they are `@Sendable` or 
 
 ## Common Mistakes
 
-### DO / DON'T
-
-**DON'T:** Create the UIKit view in `updateUIView`.
-**DO:** Create the view once in `makeUIView`; only configure/update it in `updateUIView`.
-*Why:* `updateUIView` can run many times. Creating a new view each time destroys all UIKit state (selection, scroll position, first responder) and leaks memory.
-
-**DON'T:** Set delegates in `updateUIView`.
-**DO:** Set delegates in `makeUIView`/`makeUIViewController` only.
-*Why:* Redundant delegate assignment on every update can reset internal delegate state in UIKit views like `WKWebView` or `MKMapView`.
-
-**DON'T:** Mutate the represented view's `frame`, `bounds`, `center`, or `transform`.
-**DO:** Let SwiftUI size the represented view and use `sizeThatFits`, intrinsic size, SwiftUI modifiers, or internal subview layout.
-*Why:* SwiftUI controls those layout properties for the represented view; setting them directly conflicts with SwiftUI layout.
-
-**DON'T:** Hold strong references to the Coordinator from closures.
-**DO:** Use `[weak coordinator]` in closures.
-*Why:* UIKit objects often store closures (completion handlers, action blocks). A strong reference to the coordinator that holds a reference to the UIKit view creates a retain cycle.
-
-**DON'T:** Forget to call `parent.dismiss()` or completion handlers.
-**DO:** Use the coordinator to track dismissal and invoke `parent.dismiss()` in all delegate exit paths.
-*Why:* Modal controllers presented by SwiftUI (via `.sheet`) need their dismiss binding toggled, or the sheet state becomes inconsistent.
-
-**DON'T:** Ignore `dismantleUIView` for views that hold observers or timers.
-**DO:** Clean up `NotificationCenter` observers, `Combine` subscriptions, and `Timer` instances in `dismantleUIView`.
-*Why:* Without cleanup, observers and timers continue firing after the view is removed, causing crashes or stale state updates.
-
-**DON'T:** Force `UIHostingController`'s view to fill the parent without proper constraints.
-**DO:** Use Auto Layout constraints or `sizingOptions` for proper embedding.
-*Why:* Setting `frame` manually breaks adaptive layout, trait propagation, and safe area handling.
-
-**DON'T:** Try to use `@State` in the Coordinator -- it is not a `View`.
-**DO:** Use regular stored properties on the Coordinator and communicate to SwiftUI via `parent`'s `@Binding` properties.
-*Why:* `@State` only works inside `View` conformances. Using it on a class has no effect.
-
-**DON'T:** Poll `withObservationTracking` from a UIKit controller.
-**DO:** Use UIKit automatic observation tracking hooks on iOS 18+/26+, and explicit Combine/callback invalidation for older deployment targets.
-*Why:* Manual `withObservationTracking` is one-shot, and UIKit automatic tracking is not an iOS 17 feature.
-
-**DON'T:** Skip the `addChild`/`didMove(toParent:)` dance when embedding `UIHostingController`.
-**DO:** Always call `addChild(_:)`, add the view to the hierarchy, then call `didMove(toParent:)`.
-*Why:* Skipping containment causes viewWillAppear/viewDidAppear to never fire, breaks trait collection propagation, and causes visual glitches.
+| Mistake | Fix |
+|---|---|
+| UIKit object or delegate recreated in `update*` | Create once in `make*`; update only changed state. |
+| Represented frame/bounds/transform mutated directly | Let SwiftUI size it; use intrinsic size, `sizeThatFits`, modifiers, or internal layout. |
+| Coordinator retained by UIKit closures | Capture it weakly and keep one lifecycle owner. |
+| Picker/controller exit path misses dismissal or completion | Route every delegate exit through one coordinator cleanup path. |
+| Observers, timers, or subscriptions outlive the view | Remove/cancel them in `dismantle*`. |
+| Hosting controller uses manual frame without containment | Use Auto Layout and `addChild`/`didMove(toParent:)`. |
+| `@State` used inside a coordinator | Use stored properties and communicate through bindings/callbacks. |
+| `withObservationTracking` is polled manually | Use UIKit automatic observation hooks where available or explicit invalidation on older targets. |
 
 ## Review Checklist
 
