@@ -110,7 +110,8 @@ func locationUpdates() -> AsyncStream<CLLocation> {
 | `DispatchSemaphore` | Actor isolation or `AsyncStream` |
 | `DispatchWorkItem` with cancel | `Task` with `task.cancel()` |
 | `DispatchQueue` serial queue | `actor` |
-| `DispatchQueue.concurrentPerform` | `withTaskGroup` |
+| `DispatchQueue.concurrentPerform` (async orchestration) | `withTaskGroup` |
+| `DispatchQueue.concurrentPerform` (synchronous CPU-bound parallel-for, disjoint writes) | **Keep `concurrentPerform`** -- `TaskGroup` is not a replacement (Swift core team); see SKILL.md Mistake #11 / Actor Rule #5 carve-out |
 | `DispatchSource.makeTimerSource` | `Task.sleep(for:)` in a loop, or `Clock` |
 
 ### DispatchGroup → TaskGroup

@@ -258,7 +258,13 @@ let elapsed = continuous.now - continuous.epoch  // Duration since system boot
 4. Use `@concurrent` to explicitly move work off the caller's actor.
 5. Never use `nonisolated(unsafe)` unless you have proven internal
    synchronization and exhausted all other options. It is an unsafe audit
-   boundary, not a synchronization primitive.
+   boundary, not a synchronization primitive. **Sanctioned exception:** the
+   base pointer of a pre-sized output buffer inside a `concurrentPerform`
+   data-parallel loop (see Mistake #11) may be bound `nonisolated(unsafe)` when
+   each iteration writes only its own disjoint slice and the loop joins before
+   returning -- disjointness *is* the internal synchronization. Confine it to
+   the base-pointer binding with an adjacent `// SAFETY:` comment proving
+   disjointness over the actual index arithmetic; never on shared mutable state.
 6. Never add manual locks (`NSLock`, `DispatchSemaphore`) inside actors.
 
 ## Sendable Rules
@@ -442,6 +448,7 @@ escape, and no lock is held across `await`.
 10. **MainActor.run instead of static isolation.** Prefer `@MainActor func`
     over `await MainActor.run { }`.
 11. **Using GCD for new async orchestration by default.** Prefer async/await, actors, and task groups. Keep dispatch queues where an API requires a queue, for custom executors, or during bounded legacy interop; document the isolation boundary instead of claiming GCD is universally forbidden.
+    - **Sanctioned exception -- `DispatchQueue.concurrentPerform` for a synchronous data-parallel loop.** For a *synchronous, CPU-bound parallel-for* that writes disjoint output indices, `concurrentPerform` is permitted and `TaskGroup` is explicitly **not** a replacement (Swift core team: [forums.swift.org/t/74125](https://forums.swift.org/t/dispatchqueue-concurrentperform-unsaferawpointer-in-swift-6/74125)) -- a long synchronous compute per iteration would block the cooperative pool, and there is no suspension point to schedule around. Allowed only when: (a) it is encapsulated in one utility, not scattered across call sites; (b) each iteration writes only its own disjoint slice of a pre-sized buffer, with a written disjointness proof covering the actual index arithmetic (raw-pointer writes bypass exclusivity checking, so an off-by-one in a stride silently overlaps slices); (c) it joins before the function returns (no escaping concurrency, no nesting inside another parallel loop); (d) output is byte-identical to the serial loop; (e) the iteration closure is `@Sendable` and captures nothing mutable beyond the sanctioned buffer pointer. Note `concurrentPerform` forfeits cooperative cancellation -- acceptable only because the loop is synchronous and joins before return. Pairs with the Actor Rule #5 `nonisolated(unsafe)` carve-out for the buffer base pointer.
 
 ## Review Checklist
 
