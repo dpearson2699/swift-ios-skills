@@ -256,9 +256,13 @@ let elapsed = continuous.now - continuous.epoch  // Duration since system boot
 3. Use `nonisolated` only for methods that access immutable (`let`) properties
    or are pure computations.
 4. Use `@concurrent` to explicitly move work off the caller's actor.
-5. Never use `nonisolated(unsafe)` unless you have proven internal
-   synchronization and exhausted all other options. It is an unsafe audit
-   boundary, not a synchronization primitive.
+5. Never use `nonisolated(unsafe)` unless you have proven data-race safety and
+   exhausted safer alternatives. It is an unsafe audit boundary, not a
+   synchronization primitive. For the narrow unsafe-pointer capture pattern in
+   a synchronous parallel loop, follow the proof requirements in
+   [bridging and interop](references/bridging-interop.md#synchronous-parallel-for-concurrentperform-versus-task-groups).
+   Disjoint per-iteration access can eliminate conflicting concurrent access
+   and the need for synchronization; disjointness is not itself synchronization.
 6. Never add manual locks (`NSLock`, `DispatchSemaphore`) inside actors.
 
 ## Sendable Rules
@@ -441,7 +445,19 @@ escape, and no lock is held across `await`.
    type. Isolate the entire type consistently.
 10. **MainActor.run instead of static isolation.** Prefer `@MainActor func`
     over `await MainActor.run { }`.
-11. **Using GCD for new async orchestration by default.** Prefer async/await, actors, and task groups. Keep dispatch queues where an API requires a queue, for custom executors, or during bounded legacy interop; document the isolation boundary instead of claiming GCD is universally forbidden.
+11. **Using GCD for new async orchestration by default.** Prefer async/await,
+    actors, and task groups. Keep dispatch queues where an API requires a queue,
+    for custom executors, or during bounded legacy interop. A measured,
+    synchronous CPU-bound parallel-for can still use
+    `DispatchQueue.concurrentPerform`; a task group is an async design
+    alternative, not a drop-in replacement for a synchronous API. Follow the
+    capture and memory-safety audit in
+    [bridging and interop](references/bridging-interop.md#synchronous-parallel-for-concurrentperform-versus-task-groups).
+    In every review of this diagnostic, explicitly connect its `@Sendable`
+    operation to both non-`Sendable` unsafe buffer views, and confine any
+    opt-out to proven local base-pointer bindings. Every review that retains the
+    parallel path must require benchmark-versus-serial, serial-result, and
+    nested-parallelism checks.
 
 ## Review Checklist
 
@@ -455,6 +471,8 @@ escape, and no lock is held across `await`.
 - [ ] `@preconcurrency` imports are documented with removal plan
 - [ ] Heavy work uses `@concurrent`, not `@MainActor`
 - [ ] `.task` modifier used in SwiftUI instead of manual Task management
+- [ ] Synchronous parallel loops prove nonconflicting memory access and pointer
+      lifetime invariants
 
 ## References
 

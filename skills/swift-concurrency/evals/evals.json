@@ -52,6 +52,23 @@
         "For the Xcode 26.5 explicit-capture closure issue, recommends only the documented workarounds: remove explicit captures when safe, or use a local @Sendable nonisolated(nonsending) async function.",
         "Avoids retargeting the whole project or skill guidance to Swift 6.4 / Xcode 27."
       ]
+    },
+    {
+      "id": 4,
+      "prompt": "Review this Swift 6.3 buffer-processing plan. A synchronous Core Image callback fills an output buffer with DispatchQueue.concurrentPerform while reading UnsafeBufferPointer inputs, but strict concurrency rejects the captures. The team proposes replacing it unconditionally with one TaskGroup child per element, or else marking the whole utility nonisolated(unsafe). Give the smallest safe correction, including the memory-safety proof and cancellation behavior.",
+      "expected_output": "A source-grounded review that preserves concurrentPerform when a measured synchronous parallel-for is required, treats task groups as an async alternative rather than a drop-in replacement, confines any unsafe opt-out to audited local base-pointer bindings, and requires a concrete no-conflicting-access and lifetime proof.",
+      "files": [],
+      "assertions": [
+        "Distinguishes concurrentPerform's synchronous join from the async task-group boundary and rejects unconditional replacement.",
+        "Does not claim that finite CPU computation automatically blocks the cooperative executor or violates forward progress.",
+        "States that disjoint ranges or per-iteration element ownership prevent conflicting concurrent access and may therefore remove the need for synchronization, without characterizing disjointness itself as synchronization.",
+        "Identifies both UnsafeBufferPointer and UnsafeMutableBufferPointer captures as non-Sendable under Swift 6 complete checking and attributes the diagnostic to concurrentPerform's @Sendable operation.",
+        "Confines any nonisolated(unsafe) opt-out to local base-pointer bindings captured by the @Sendable closure rather than the whole utility or buffer view.",
+        "Requires an adjacent safety proof covering actual index/range arithmetic, bounds, initialization or mutation, aliasing and nonconflicting accesses, and pointer lifetime through the synchronous join.",
+        "Allows a proven nonconflicting in-place transform instead of imposing blanket input/output non-aliasing, and for a same-base element-wise transform proves read-before-write, same-index-only access, and cross-index nonoverlap.",
+        "Explains that concurrentPerform does not automatically inherit Swift task cancellation while allowing an explicit thread-safe cancellation design with defined partial-output semantics.",
+        "Requires representative benchmark-versus-serial measurement, serial-result equivalence testing, and caution about nested parallelism as engineering checks rather than Apple API guarantees."
+      ]
     }
   ]
 }
