@@ -1,0 +1,56 @@
+{
+  "context": "Tests whether swift-concurrency handles a measured synchronous parallel-for without an invalid async substitution or an overly broad unsafe opt-out.",
+  "type": "weighted_checklist",
+  "checklist": [
+    {
+      "name": "Boundary Choice",
+      "description": "Keeps DispatchQueue.concurrentPerform for the measured synchronous entry point and explains that a task group is an async redesign rather than a drop-in replacement; it does not claim finite CPU work inherently violates cooperative-executor forward progress.",
+      "max_score": 15
+    },
+    {
+      "name": "Capture Diagnosis",
+      "description": "Identifies both UnsafeBufferPointer and UnsafeMutableBufferPointer views as non-Sendable captures under Swift 6 complete concurrency checking and notes that concurrentPerform's closure is @Sendable.",
+      "max_score": 15
+    },
+    {
+      "name": "Narrow Unsafe Boundary",
+      "description": "Confines nonisolated(unsafe) to local input and output base-pointer bindings captured by the closure, rather than applying it to either buffer view, the function, or the enclosing utility.",
+      "max_score": 15
+    },
+    {
+      "name": "Access Proof",
+      "description": "Provides an adjacent safety argument covering the actual index or range arithmetic, bounds, aliases and absence of conflicting concurrent access, initialization versus mutation, and pointer lifetime through the synchronous join.",
+      "max_score": 20
+    },
+    {
+      "name": "Disjointness Accuracy",
+      "description": "Treats disjoint per-iteration access as a reason synchronization may be unnecessary without calling disjointness itself synchronization, and does not impose blanket input/output non-aliasing when a proven nonconflicting in-place transform could be valid.",
+      "max_score": 10
+    },
+    {
+      "name": "Correct Initialization",
+      "description": "The fresh-array example initializes previously uninitialized output elements rather than assigning through an initialized-memory subscript, and sets the initialized element count only after the joined loop completes.",
+      "max_score": 10
+    },
+    {
+      "name": "Cancellation Contract",
+      "description": "Explains that concurrentPerform does not automatically inherit Swift task cancellation and either defines an explicit thread-safe signal with partial-output semantics or states that this synchronous implementation completes the whole output before returning.",
+      "max_score": 10
+    },
+    {
+      "name": "Tiled Reaudit",
+      "description": "Requires a fresh range, bounds, alias, and cross-iteration access proof when element-wise indexing changes to multi-element tiles.",
+      "max_score": 2
+    },
+    {
+      "name": "Performance Evidence",
+      "description": "Requires representative benchmark-versus-serial measurement and serial-result equivalence checks before retaining the parallel path, and treats them as engineering evidence rather than Apple guarantees.",
+      "max_score": 2
+    },
+    {
+      "name": "Nested Parallelism",
+      "description": "Cautions against nested parallel loops unless separate measurement shows that the resulting oversubscription is beneficial.",
+      "max_score": 1
+    }
+  ]
+}

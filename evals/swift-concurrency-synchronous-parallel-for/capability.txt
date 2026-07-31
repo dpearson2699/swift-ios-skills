@@ -1,0 +1,1 @@
+Review a synchronous Swift parallel-for under complete concurrency checking, preserving justified parallelism while proving unsafe-pointer access and cancellation behavior.

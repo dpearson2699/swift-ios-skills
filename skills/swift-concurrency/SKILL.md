@@ -256,18 +256,13 @@ let elapsed = continuous.now - continuous.epoch  // Duration since system boot
 3. Use `nonisolated` only for methods that access immutable (`let`) properties
    or are pure computations.
 4. Use `@concurrent` to explicitly move work off the caller's actor.
-5. Never use `nonisolated(unsafe)` unless you have proven internal
-   synchronization and exhausted all other options. It is an unsafe audit
-   boundary, not a synchronization primitive. **Sanctioned exception:** buffer
-   base pointers inside a `concurrentPerform` data-parallel loop (see Mistake
-   #11) may be bound `nonisolated(unsafe)`: the pre-sized *output* buffer when
-   each iteration writes only its own disjoint slice and the loop joins before
-   returning -- disjointness *is* the internal synchronization -- and read-only
-   *input* buffers, which are equally non-Sendable and need the same audit.
-   Confine it to the base-pointer bindings with an adjacent `// SAFETY:` comment
-   proving disjointness over the actual index arithmetic for outputs and
-   read-only/non-aliasing/outlives-the-loop for inputs; never on shared mutable
-   state.
+5. Never use `nonisolated(unsafe)` unless you have proven data-race safety and
+   exhausted safer alternatives. It is an unsafe audit boundary, not a
+   synchronization primitive. For the narrow unsafe-pointer capture pattern in
+   a synchronous parallel loop, follow the proof requirements in
+   [bridging and interop](references/bridging-interop.md#synchronous-parallel-for-concurrentperform-versus-task-groups).
+   Disjoint per-iteration access can eliminate conflicting concurrent access
+   and the need for synchronization; disjointness is not itself synchronization.
 6. Never add manual locks (`NSLock`, `DispatchSemaphore`) inside actors.
 
 ## Sendable Rules
@@ -450,8 +445,19 @@ escape, and no lock is held across `await`.
    type. Isolate the entire type consistently.
 10. **MainActor.run instead of static isolation.** Prefer `@MainActor func`
     over `await MainActor.run { }`.
-11. **Using GCD for new async orchestration by default.** Prefer async/await, actors, and task groups. Keep dispatch queues where an API requires a queue, for custom executors, or during bounded legacy interop; document the isolation boundary instead of claiming GCD is universally forbidden.
-    - **Sanctioned exception -- `DispatchQueue.concurrentPerform` for a synchronous data-parallel loop.** For a *synchronous, CPU-bound parallel-for* that writes disjoint output indices, `concurrentPerform` is permitted and `TaskGroup` is explicitly **not** a replacement (Swift core team: [forums.swift.org/t/74125](https://forums.swift.org/t/dispatchqueue-concurrentperform-unsaferawpointer-in-swift-6/74125)) -- a long synchronous compute per iteration would block the cooperative pool, and there is no suspension point to schedule around. Allowed only when: (a) it is encapsulated in one utility, not scattered across call sites; (b) each iteration writes only its own disjoint slice of a pre-sized buffer, with a written disjointness proof covering the actual index arithmetic (raw-pointer writes bypass exclusivity checking, so an off-by-one in a stride silently overlaps slices); (c) it joins before the function returns (no escaping concurrency, no nesting inside another parallel loop); (d) output is byte-identical to the serial loop; (e) the iteration closure is `@Sendable` and every captured value is Sendable or explicitly audited -- the sanctioned output base pointer, plus any read-only input pointers (also non-Sendable under strict concurrency), each documented in the same `// SAFETY:` comment as read-only, non-aliasing with the output slices, and valid for the loop's duration. Note `concurrentPerform` forfeits cooperative cancellation -- acceptable only because the loop is synchronous and joins before return. Pairs with the Actor Rule #5 `nonisolated(unsafe)` carve-out for the buffer base pointer.
+11. **Using GCD for new async orchestration by default.** Prefer async/await,
+    actors, and task groups. Keep dispatch queues where an API requires a queue,
+    for custom executors, or during bounded legacy interop. A measured,
+    synchronous CPU-bound parallel-for can still use
+    `DispatchQueue.concurrentPerform`; a task group is an async design
+    alternative, not a drop-in replacement for a synchronous API. Follow the
+    capture and memory-safety audit in
+    [bridging and interop](references/bridging-interop.md#synchronous-parallel-for-concurrentperform-versus-task-groups).
+    In every review of this diagnostic, explicitly connect its `@Sendable`
+    operation to both non-`Sendable` unsafe buffer views, and confine any
+    opt-out to proven local base-pointer bindings. Every review that retains the
+    parallel path must require benchmark-versus-serial, serial-result, and
+    nested-parallelism checks.
 
 ## Review Checklist
 
@@ -465,6 +471,8 @@ escape, and no lock is held across `await`.
 - [ ] `@preconcurrency` imports are documented with removal plan
 - [ ] Heavy work uses `@concurrent`, not `@MainActor`
 - [ ] `.task` modifier used in SwiftUI instead of manual Task management
+- [ ] Synchronous parallel loops prove nonconflicting memory access and pointer
+      lifetime invariants
 
 ## References
 
