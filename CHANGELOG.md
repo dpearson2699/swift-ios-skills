@@ -1,5 +1,22 @@
 # Changelog
 
+## v3.9.1
+
+### Repository
+
+- Bump the Tessl plugin and Claude Code marketplace metadata to 3.9.1.
+- Add focused Agent Skills and Tessl regression coverage for synchronous Swift
+  parallel-for review guidance.
+
+### Skill updates
+
+- Correct `swift-concurrency` guidance for measured, synchronous CPU-bound
+  `DispatchQueue.concurrentPerform` loops: treat task groups as an async design
+  alternative rather than a drop-in replacement, confine any
+  `nonisolated(unsafe)` opt-out to audited local base-pointer bindings, and
+  require concrete bounds, aliasing, initialization, lifetime, cancellation,
+  serial-equivalence, and nested-parallelism checks.
+
 ## v3.9.0
 
 ### Repository
