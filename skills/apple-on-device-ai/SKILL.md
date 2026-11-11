@@ -83,6 +83,8 @@ Google's open-source on-device runtime, when an Android app ships the same model
 - Prebuilt `.litertlm` models from Hugging Face, such as Gemma 4 E2B
 - One model file for iOS and Android, with matching Engine and Conversation types in Swift and Kotlin
 
+Prebuilt Gemma 4 E2B and E4B .litertlm files are on Hugging Face (litert-community) and are not gated: they download without a login.
+
 ### Quick Reference
 
 | Scenario | Framework |
