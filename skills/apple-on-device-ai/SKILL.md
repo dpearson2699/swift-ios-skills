@@ -1,12 +1,12 @@
 ---
 name: apple-on-device-ai
-description: "Build private, on-device AI features on iPhone, iPad, and Mac with Foundation Models, Core ML, MLX Swift, or llama.cpp. Use when choosing an Apple-local model runtime, building an Apple Intelligence chatbot or tool-calling feature, running an LLM on Apple Silicon, converting or compressing a Python model for Core ML, or comparing on-device inference backends. For Swift Core ML loading and prediction code, use the coreml skill."
+description: "Build private, on-device AI features on iPhone, iPad, and Mac with Foundation Models, Core ML, MLX Swift, llama.cpp, or LiteRT-LM. Use when choosing an Apple-local model runtime, building an Apple Intelligence chatbot or tool-calling feature, running an LLM on Apple Silicon, converting or compressing a Python model for Core ML, or comparing on-device inference backends. For Swift Core ML loading and prediction code, use the coreml skill."
 ---
 
 # On-Device AI for Apple Platforms
 
 Guide for selecting, deploying, and optimizing on-device ML models. Covers Apple
-Foundation Models, Core ML, MLX Swift, and llama.cpp.
+Foundation Models, Core ML, MLX Swift, llama.cpp, and LiteRT-LM.
 
 ## Contents
 
@@ -74,6 +74,17 @@ deployments needing broad device support.
 - Cross-platform apps (iOS + Android + desktop)
 - Maximum compatibility with open-source model ecosystem
 
+### LiteRT-LM
+
+**When to use:** Running Gemma and other `.litertlm` models with LiteRT-LM,
+Google's open-source on-device runtime, when an Android app ships the same model.
+
+**Best for:**
+- Prebuilt `.litertlm` models from Hugging Face, such as Gemma 4 E2B
+- One model file for iOS and Android, with matching Engine and Conversation types in Swift and Kotlin
+
+Prebuilt Gemma 4 E2B and E4B .litertlm files are on Hugging Face (litert-community) and are not gated: they download without a login.
+
 ### Quick Reference
 
 | Scenario | Framework |
@@ -85,6 +96,7 @@ deployments needing broad device support.
 | Running specific open-source LLMs | MLX Swift or llama.cpp |
 | Maximum throughput on Apple Silicon | MLX Swift |
 | Cross-platform LLM inference | llama.cpp |
+| Gemma `.litertlm` model shared with an Android app | LiteRT-LM |
 | OCR and text recognition | Vision framework |
 | Sentiment analysis, NER, tokenization | Natural Language framework |
 | Training custom classifiers on device | Create ML |
@@ -327,3 +339,4 @@ unless product explicitly opts into a nonlocal fallback.
 - [Core ML Conversion](references/coreml-conversion.md) -- Model conversion from PyTorch, TensorFlow, other frameworks
 - [Core ML Optimization](references/coreml-optimization.md) -- Quantization, palettization, pruning, performance tuning
 - [MLX Swift & llama.cpp](references/mlx-swift.md) -- MLX Swift patterns, llama.cpp integration, memory management
+- [LiteRT-LM](references/litert-lm.md) -- Swift package setup, streaming, stopping, and unloading
